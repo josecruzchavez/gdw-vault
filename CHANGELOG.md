@@ -1,6 +1,6 @@
 # Historial de cambios
 
-## Próximo
+## 1.6.0 — 2026-10-31
 
 - **SSH y procesos con secretos**: intérpretes, programas no reconocidos y
   comandos compuestos se clasifican como ejecución nativa, no como lectura. Se

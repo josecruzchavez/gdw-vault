@@ -11,6 +11,7 @@ permissions:
 jobs:
   release:
     runs-on: macos-latest
+    environment: production
     env:
       APPLE_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
       APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}

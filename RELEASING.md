@@ -39,11 +39,11 @@ se guardan en los artefactos del release.
 
 1. Actualiza `VERSION` y agrega las notas correspondientes en `CHANGELOG.md`.
 2. Sube esos cambios a la rama principal.
-3. Crea y publica un tag que coincida exactamente con `VERSION`; para `1.5.0`:
+3. Crea y publica un tag que coincida exactamente con `VERSION`; para `1.6.0`:
 
    ```bash
-   git tag -a v1.5.0 -m "GDW Vault 1.5.0"
-   git push origin v1.5.0
+   git tag -a v1.6.0 -m "GDW Vault 1.6.0"
+   git push origin v1.6.0
    ```
 
 4. Revisa la ejecución **Actions → Release** y verifica el `.dmg`, el `.zip` y
