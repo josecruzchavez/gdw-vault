@@ -12,10 +12,14 @@ iCloud está desactivada; los datos de la bóveda se usan localmente en esta Mac
 Al conectarse a un servidor remoto, la aplicación envía las credenciales
 necesarias a ese destino.
 
-Versión: [VERSION](./VERSION) · CLI: `gdw-vault version` ·
-Cambios: [CHANGELOG.md](./CHANGELOG.md) · Sitio: [vault.gdw.mx](https://vault.gdw.mx).
-Guía de releases: [RELEASING.md](./RELEASING.md) ·
-[Aviso de uso y seguridad](./TERMS.md).
+- **Versión:** [VERSION](./VERSION)
+- **CLI:** `gdw-vault version`
+- **Descarga:** [última release de GitHub](https://github.com/josecruzchavez/gdw-vault/releases/latest)
+- **Homebrew:** [tap de GDW Vault](https://github.com/josecruzchavez/homebrew-gdw-vault)
+- **Cambios:** [CHANGELOG.md](./CHANGELOG.md)
+- **Sitio:** [vault.gdw.mx](https://vault.gdw.mx)
+- **Guía de releases:** [RELEASING.md](./RELEASING.md)
+- **Aviso de uso y seguridad:** [TERMS.md](./TERMS.md)
 
 ## Índice
 
@@ -23,6 +27,7 @@ Guía de releases: [RELEASING.md](./RELEASING.md) ·
 - [Características](#características)
 - [Requisitos](#requisitos)
 - [Instalación, actualización y desinstalación](#instalación-actualización-y-desinstalación)
+- [Instalación desde una release](#instalación-desde-una-release)
 - [Uso](#uso)
 - [Integración MCP](#integración-mcp)
 - [Aviso de uso y seguridad](#aviso-de-uso-y-seguridad)
@@ -88,10 +93,33 @@ según el modo de cada conexión.
 
 ## Instalación, actualización y desinstalación
 
-La aplicación se compila localmente con Swift. Necesitas macOS 13 o posterior
-y Xcode Command Line Tools.
+Puedes descargar una versión ya compilada o compilarla desde el código fuente.
+Para compilar necesitas macOS 13 o posterior y Xcode Command Line Tools.
 
-### Primera instalación
+### Instalación desde una release
+
+Descarga la versión más reciente desde [GitHub Releases](https://github.com/josecruzchavez/gdw-vault/releases/latest).
+Abre el archivo `GDW-Vault-<versión>-universal.dmg` y arrastra **GDW Vault.app**
+a **Aplicaciones**. Después, abre la app. El DMG también incluye un enlace a
+la carpeta Aplicaciones. Esta versión universal funciona en Macs Apple Silicon
+e Intel, y está firmada y notarizada por Apple. No necesitas clonar el
+repositorio ni compilar el código.
+
+También se publican un `.zip` y `SHA256SUMS.txt` para verificar los archivos.
+
+También puedes instalar la app con Homebrew:
+
+```bash
+brew install --cask josecruzchavez/gdw-vault/gdw-vault
+```
+
+La descarga directa instala la app, pero no configura el LaunchAgent de
+autoinicio ni el wrapper CLI. Para registrar el servicio XPC requerido por MCP
+y configurar esos componentes, sigue el flujo desde el código fuente.
+
+### Instalar desde el código fuente
+
+#### Primera instalación
 
 ```bash
 ./build.sh && ./install.sh
@@ -517,8 +545,8 @@ cada proveedor antes de tomar decisiones.
 - Diseñar e implementar sincronización entre Macs (evaluar CloudKit/CKSyncEngine).
   Hasta entonces, la sincronización con iCloud permanece desactivada y los datos
   locales siguen funcionando de forma independiente.
-- Configurar los secrets de GitHub Actions y ejecutar el primer release firmado
-  y notarizado; consulta [RELEASING.md](./RELEASING.md).
+- Completar un instalador de release que configure el LaunchAgent y el wrapper
+  CLI/MCP sin compilar desde el código fuente.
 - Instalador remoto mediante `curl` y publicación en Homebrew, con artefactos
   verificables y un flujo de actualización.
 - Extensión de VS Code para registrar GDW Vault MCP automáticamente, sin editar
