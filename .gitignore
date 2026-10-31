@@ -1,0 +1,8 @@
+/build/
+/dist/
+*.dmg
+*.zip
+.DS_Store
+__pycache__/
+*.py[cod]
+/gdw-vault
