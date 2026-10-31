@@ -19,7 +19,9 @@ necesarias a ese destino.
 - **Descargar ahora (recomendado):** [instalador `.pkg` v1.6.2](https://github.com/josecruzchavez/gdw-vault/releases/latest/download/GDW-Vault-1.6.2-universal.pkg)
 - **Otras descargas y versiones:** [GitHub Releases](https://github.com/josecruzchavez/gdw-vault/releases/latest)
 - **Homebrew:** [tap de GDW Vault](https://github.com/josecruzchavez/homebrew-gdw-vault)
+- **Extensión para VS Code / GitHub Copilot (solo macOS):** [GDW Vault MCP en Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=JosCruzChvez.gdw-vault-mcp)
 - **Código fuente (opcional):** [guía para compilar e instalar](./DEVELOPMENT.md)
+- **Guía práctica MCP:** [instalar, configurar y conectar SSH, MySQL, Magento, WordPress y Joomla](./MCP_GUIDE.md)
 - **Cambios:** [CHANGELOG.md](./CHANGELOG.md)
 - **Sitio:** [vault.gdw.mx](https://vault.gdw.mx)
 - **Guía de releases:** [RELEASING.md](./RELEASING.md)
@@ -34,6 +36,8 @@ necesarias a ese destino.
 - [Instalación, actualización y desinstalación](#instalación-actualización-y-desinstalación)
 - [Instalación desde una release](#instalación-desde-una-release)
 - [Compilar e instalar desde el código fuente](./DEVELOPMENT.md)
+- [Extensión MCP para VS Code en Marketplace](https://marketplace.visualstudio.com/items?itemName=JosCruzChvez.gdw-vault-mcp)
+- [Guía práctica MCP: instalación, configuración y ejemplos](./MCP_GUIDE.md)
 - [Uso](#uso)
 - [Integración MCP](#integración-mcp)
 - [Aviso de uso y seguridad](#aviso-de-uso-y-seguridad)
@@ -241,9 +245,20 @@ gdw-vault exec "Nombre" -- <comando>  # ejecutar con el secreto inyectado
 
 ## Integración MCP
 
+Consulta la [guía práctica de MCP](./MCP_GUIDE.md) para ver los pasos de
+instalación y configuración, y ejemplos de SSH, MySQL, Magento, WordPress y
+Joomla.
+
 ### Configurar VS Code / Copilot
 
-Añade el servidor a `mcp.json` del cliente. En VS Code, el formato es:
+Para usar GDW Vault desde GitHub Copilot en todos tus workspaces, instala la
+[extensión GDW Vault MCP desde Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=JosCruzChvez.gdw-vault-mcp)
+o búscala en VS Code como **GDW Vault MCP**. Es una extensión para macOS:
+requiere tener instalada la aplicación GDW Vault en esa plataforma. Registra
+GDW Vault en la configuración global de Copilot y conserva los servidores que
+ya tengas.
+
+La configuración manual por workspace sigue disponible en `.vscode/mcp.json`:
 
 ```json
 {
@@ -257,10 +272,11 @@ Añade el servidor a `mcp.json` del cliente. En VS Code, el formato es:
 }
 ```
 
-La app de barra debe estar instalada y activa. Recarga con **MCP: Reload
-Servers**. Cada cliente inicia su proceso MCP por stdio; las consultas y
-mutaciones de SQLite se envían por XPC al servicio local de la app. No apuntes
-los clientes directamente al archivo de la base de datos.
+La configuración manual por workspace se mantiene por compatibilidad. La app
+de barra debe estar instalada y activa. Recarga con **MCP: Reload Servers**.
+Cada cliente inicia su proceso MCP por stdio; las consultas y mutaciones de
+SQLite se envían por XPC al servicio local de la app. No apuntes los clientes
+directamente al archivo de la base de datos.
 
 Herramientas disponibles:
 
@@ -555,9 +571,6 @@ cada proveedor antes de tomar decisiones.
   locales siguen funcionando de forma independiente.
 - Instalador remoto mediante `curl` y publicación en Homebrew, con artefactos
   verificables y un flujo de actualización.
-- Extensión de VS Code para registrar GDW Vault MCP automáticamente, sin editar
-  `.vscode/mcp.json`; evaluar asistentes de configuración para otros clientes
-  MCP compatibles.
 - Administración de grupos (renombrar/eliminar) desde la GUI.
 - Export/backup cifrado.
 
@@ -565,7 +578,9 @@ cada proveedor antes de tomar decisiones.
 
 GDW Vault es un **gestor de conexiones para macOS** y una **bóveda local de
 credenciales** para SSH/SFTP, MySQL, PostgreSQL y APIs. Incluye un **servidor
-MCP para VS Code y GitHub Copilot** e importación de conexiones de FileZilla.
+MCP para VS Code y GitHub Copilot** y la extensión **GDW Vault MCP** en Visual
+Studio Marketplace, exclusiva para macOS. También permite importar conexiones
+de FileZilla.
 
 **Búsquedas relacionadas:** gestor de conexiones macOS, administrador SSH
 para Mac, bóveda local de credenciales, servidor MCP macOS, MCP para VS Code,
