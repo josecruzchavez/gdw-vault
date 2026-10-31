@@ -30,7 +30,7 @@ DB = os.path.expanduser("~/Library/Application Support/GDWVault/vault.db")
 EXPECTED_TOOLS = [
     "list_groups", "list_connections", "get_connection",
     "get_connection_password", "create_connection", "update_connection",
-    "delete_connection", "list_keys", "db_query", "ssh_exec",
+    "delete_connection", "list_keys", "db_query", "ssh_exec", "ssh_native_exec",
     "get_connection_command", "run_with_secret", "http_request",
 ]
 
@@ -223,6 +223,19 @@ def run_unattended(s):
         "ssh_name": "smoke ssh", "command": "rm -rf /tmp/gdw_smoke"})
     s.check("ssh_exec: rm bloqueado en modo lectura",
             r.get("ok") is False and "Modo 'lectura'" in r.get("output", ""),
+            str(r)[:150])
+
+    # 11b. Intérpretes y herramientas nativas también se bloquean en lectura.
+    r = s.tool_result("ssh_exec", {
+        "ssh_name": "smoke ssh", "command": "php -r 'echo 1;'"})
+    s.check("ssh_exec: PHP arbitrario bloqueado en modo lectura",
+            r.get("ok") is False and "Ejecución nativa bloqueada" in r.get("output", ""),
+            str(r)[:150])
+
+    r = s.tool_result("ssh_native_exec", {
+        "ssh_name": "smoke ssh", "command": "bin/magento cache:flush"})
+    s.check("ssh_native_exec: modo lectura bloquea ejecución nativa explícita",
+            r.get("ok") is False and "Ejecución nativa bloqueada" in r.get("output", ""),
             str(r)[:150])
 
     # 12. ssh_exec con conexión inexistente

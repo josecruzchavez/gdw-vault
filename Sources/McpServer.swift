@@ -218,14 +218,27 @@ final class McpServer {
             ],
             [
                 "name": "ssh_exec",
-                "description": "Ejecuta un comando remoto por SSH usando una conexión ssh/sftp del vault (coincidencia parcial en el nombre). POLÍTICA POR CONEXIÓN (campo 'Modo'): lectura (default) solo comandos de lectura (ls, cat, df, ps, grep…); info bloquea escritura y muestra el comando para consola; edicion permite comandos moderados con confirm=true pero bloquea destructivos; unsafe permite todo con confirm=true. Archivos sensibles (.env, env.php, local.xml, wp-config.php): bloqueados por defecto; si la conexión permite su lectura, cada llamada requiere confirm=true y la autorización Touch ID se reutiliza durante 15 min para esa conexión. Escrituras siempre requieren Touch ID fresco. La protección por nombres es defensa adicional; aplica permisos Unix en el servidor para impedir accesos reales. Opcional: 'timeout' en segundos (5-300, default 60).",
+                "description": "Ejecuta por SSH comandos de una allowlist acotada de lectura o cambios conocidos. Programas no reconocidos e intérpretes se consideran ejecución nativa y requieren modo unsafe + Touch ID fresco; el motivo de Touch ID informa que el proceso conserva los permisos de la cuenta SSH. No es un sandbox. Los nombres de archivos sensibles solo detectan referencias explícitas. Opcional: timeout (5-300, default 60).",
                 "inputSchema": [
                     "type": "object",
                     "required": ["ssh_name", "command"],
                     "properties": [
                         "ssh_name": ["type": "string", "description": "Nombre de la conexión ssh/sftp (coincidencia parcial aceptada)"],
                         "command": ["type": "string", "description": "Comando a ejecutar en el servidor remoto"],
-                        "confirm": ["type": "boolean", "description": "Confirma comandos de escritura en modos edicion/unsafe o cada lectura de archivo sensible habilitada; Touch ID se reutiliza por 15 min para lecturas sensibles de esa conexión, las escrituras siempre piden Touch ID fresco"],
+                        "confirm": ["type": "boolean", "description": "Confirma cambios y lecturas explícitas de archivos sensibles; no se requiere para ejecución nativa en modo unsafe"],
+                        "timeout": ["type": "integer", "description": "Segundos de espera máximo (5-300, default 60)"],
+                    ],
+                ],
+            ],
+            [
+                "name": "ssh_native_exec",
+                "description": "Ejecuta explícitamente código nativo/remoto (frameworks, intérpretes, scripts o comandos compuestos) con los permisos de la cuenta SSH. Solo funciona en modo unsafe y requiere Touch ID fresco; el motivo de Touch ID indica que el proceso tendrá los permisos de la cuenta. GDW Vault no puede aislar ni predecir lo que hará el proceso.",
+                "inputSchema": [
+                    "type": "object",
+                    "required": ["ssh_name", "command"],
+                    "properties": [
+                        "ssh_name": ["type": "string", "description": "Nombre de conexión SSH/SFTP"],
+                        "command": ["type": "string", "description": "Comando nativo completo que se autorizará y ejecutará"],
                         "timeout": ["type": "integer", "description": "Segundos de espera máximo (5-300, default 60)"],
                     ],
                 ],
@@ -245,7 +258,7 @@ final class McpServer {
             ],
             [
                 "name": "run_with_secret",
-                "description": "Ejecuta un comando LOCAL entregando el secreto de una conexión al proceso (variable de entorno o stdin). Por MCP, stdout y stderr se descartan y solo se devuelve el código de salida; el secreto nunca va en los argumentos. Sirve para CLIs que acepten credencial por env/stdin. POLÍTICA POR CONEXIÓN (campo 'Modo'): lectura solo comandos de lectura; info bloquea y muestra el comando de consola; edicion permite moderados con confirm=true; unsafe permite todo con confirm=true. TOUCH ID: lectura con ventana de gracia; escritura siempre fresco. Si la conexión usa llave SSH, se inyecta la RUTA de la llave privada.",
+                "description": "Ejecuta un comando local entregando el secreto por variable de entorno o stdin. Comandos nativos/desconocidos requieren modo unsafe y Touch ID fresco. El proceso local no está aislado por Vault. La salida MCP solo devuelve el código de salida.",
                 "inputSchema": [
                     "type": "object",
                     "required": ["name", "command"],
@@ -371,7 +384,10 @@ final class McpServer {
             dbQuery(id: id, args: args)
 
         case "ssh_exec":
-            sshExec(id: id, args: args)
+            sshExec(id: id, args: args, nativeExecution: false)
+
+        case "ssh_native_exec":
+            sshExec(id: id, args: args, nativeExecution: true)
 
         case "run_with_secret":
             runWithSecret(id: id, args: args)
@@ -674,7 +690,7 @@ final class McpServer {
         ]))])
     }
 
-    private func sshExec(id: Any, args: [String: Any]) {
+    private func sshExec(id: Any, args: [String: Any], nativeExecution: Bool) {
         guard let sshName = argString(args, "ssh_name"),
               let command = argString(args, "command") else {
             fail(id, "Se requieren 'ssh_name' y 'command'")
@@ -684,7 +700,8 @@ final class McpServer {
         let outcome = SshRunner().exec(
             sshName: sshName, command: command,
             confirm: args["confirm"] as? Bool ?? false,
-            timeout: timeout)
+            timeout: timeout,
+            nativeExecution: nativeExecution)
         result(id, ["content": textContent(jsonString([
             "ok": outcome.ok,
             "output": outcome.message,

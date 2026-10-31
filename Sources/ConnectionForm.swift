@@ -92,11 +92,12 @@ final class ConnectionForm: NSObject, NSWindowDelegate {
 
         modePopup = NSPopUpButton(frame: .zero, pullsDown: false)
         modePopup.addItems(withTitles: [
-            "Lectura — solo consultas",
-            "Info — bloquea y muestra cómo ejecutarlo",
-            "Edición — escritura con confirmación",
-            "Unsafe — todo con confirmación",
+            "Lectura — consultas/comandos permitidos",
+            "Info — bloquea cambios y ejecución nativa",
+            "Edición — cambios moderados con confirmación",
+            "Unsafe — acciones de alto riesgo",
         ])
+        modePopup.toolTip = "En SSH/SFTP, programas nativos y frameworks solo se ejecutan en Unsafe y piden Touch ID fresco. La autorización no aísla el proceso ni cambia los permisos del servidor."
         httpAuthPopup = NSPopUpButton(frame: .zero, pullsDown: false)
         httpAuthPopup.addItems(withTitles: [
             "Sin autenticación",
@@ -112,7 +113,7 @@ final class ConnectionForm: NSObject, NSWindowDelegate {
         passField.placeholderString = editing == nil ? "(opcional)" : "(dejar vacío para conservar)"
         sensitiveReadCheckbox = NSButton(checkboxWithTitle: "Permitir lectura de archivos sensibles",
                                          target: nil, action: nil)
-        sensitiveReadCheckbox.toolTip = "Cada lectura requiere confirm=true. Touch ID se solicita al primer acceso y se reutiliza durante 15 min para esta conexión. No sustituye los permisos del servidor."
+        sensitiveReadCheckbox.toolTip = "Filtro adicional para referencias explícitas a nombres sensibles. No detecta accesos indirectos de frameworks ni sustituye los permisos del servidor. Cada acceso detectado requiere confirm=true y Touch ID."
 
         copyPassButton = NSButton(title: "Copiar", target: self, action: #selector(copyStoredPassword))
         copyPassButton.bezelStyle = .rounded

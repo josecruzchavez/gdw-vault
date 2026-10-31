@@ -4,11 +4,8 @@ import Foundation
 /// valor pase por el chat: viaja por variable de entorno o stdin y nunca
 /// aparece en los argumentos del comando. MCP descarta stdout y stderr.
 ///
-/// Política de modos idéntica a ssh_exec/db_query (`details.mode`):
-///   lectura → solo comandos de lectura; resto bloqueado.
-///   info    → bloquea escritura y muestra cómo ejecutarlo en consola.
-///   edicion → permite comandos moderados con confirm=true; bloquea destructivos.
-///   unsafe  → permite todo con confirm=true.
+/// Procesa secretos locales con la política de modos de la conexión. Los
+/// procesos nativos son código arbitrario y requieren modo unsafe y Touch ID fresco.
 final class SecretBroker {
     struct Result {
         let ok: Bool
@@ -42,7 +39,7 @@ final class SecretBroker {
         let details = store.detailsDict(from: conn)
         let modeRaw = (details["mode"] ?? "lectura").lowercased()
         let mode = modeRaw == "safe" ? "lectura" : modeRaw
-        let tier = SshRunner.classify(command)
+        let tier = SSHCommandPolicy.classify(command)
         let protocolType = conn["protocol"] as? String ?? ""
         if let privateKeyFile = SensitiveFilePolicy.matchedPrivateKeyName(in: command) {
             return Result(
@@ -52,6 +49,7 @@ final class SecretBroker {
         let sensitiveFile = ["ssh", "sftp"].contains(protocolType)
             ? SensitiveFilePolicy.matchedName(in: command) : nil
         let console = Self.consoleCommand(name: connName, command: command, envVar: envVar ?? Self.defaultEnvVar)
+        var nativeAuthorized = false
 
         if let sensitiveFile {
             guard SensitiveFilePolicy.isEnabled(in: details) else {
@@ -71,7 +69,27 @@ final class SecretBroker {
             }
         }
 
-        if !operatorOverride && tier != .read {
+        if !operatorOverride && tier == .native {
+            guard SSHCommandPolicy.allowsNativeExecution(mode: mode) else {
+                return Result(ok: false, message: """
+                🔒 Ejecución nativa bloqueada en modo '\(mode)'. Cambia esta conexión a modo unsafe para permitirla.
+                El proceso local se ejecutaría con los permisos de esta Mac y recibiría el secreto de «\(connName)».
+
+                Comando:
+                \(command)
+                """)
+            }
+            let delivery = viaStdin ? "El proceso recibirá el secreto por stdin."
+                : "El proceso recibirá el secreto en la variable \(envVar ?? Self.defaultEnvVar)."
+            nativeAuthorized = AuthSession.shared.forceAuthorize(
+                reason: "GDW Vault: ejecutar código nativo local con el secreto de \"\(connName)\". \(delivery)"
+            )
+            guard nativeAuthorized else {
+                return Result(ok: false, message: "Touch ID rechazado para ejecución nativa")
+            }
+        }
+
+        if !operatorOverride && tier != .read && tier != .native {
             switch mode {
             case "edicion":
                 if tier == .destructive {
@@ -130,7 +148,9 @@ final class SecretBroker {
 
         // Las lecturas sensibles usan su propia ventana; escrituras siempre frescas.
         let granted: Bool
-        if let sensitiveFile {
+        if nativeAuthorized {
+            granted = true
+        } else if let sensitiveFile {
             if tier == .read {
                 granted = AuthSession.shared.authorizeSensitiveRead(
                     account: conn["keychain_account"] as? String ?? "",
@@ -144,6 +164,10 @@ final class SecretBroker {
         } else if tier == .read {
             granted = AuthSession.shared.authorize(
                 reason: "GDW Vault: ejecutar comando local con el secreto de \"\(connName)\"."
+            )
+        } else if tier == .native {
+            granted = AuthSession.shared.forceAuthorize(
+                reason: "GDW Vault: ejecutar código nativo local con el secreto de \"\(connName)\"."
             )
         } else {
             granted = AuthSession.shared.forceAuthorize(

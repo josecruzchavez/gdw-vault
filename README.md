@@ -240,8 +240,9 @@ Herramientas disponibles:
 | `delete_connection` | **Sí** — pide huella antes de borrar |
 | `list_keys` | No (llaves SSH: nombre y rutas, sin contenido) |
 | `db_query` | Lectura: ventana de gracia 15 min · Escritura: **siempre huella fresca** |
-| `ssh_exec` | Ídem |
-| `run_with_secret` | Ídem — inyecta el secreto; MCP devuelve solo el código de salida |
+| `ssh_exec` | Allowlist de lectura/cambios conocidos · comandos no reconocidos se elevan a ejecución nativa |
+| `ssh_native_exec` | **Unsafe + huella fresca** |
+| `run_with_secret` | Proceso local con secreto · nativo: Unsafe + huella fresca |
 | `http_request` | Ídem — HTTP con sesión y autenticación de la conexión |
 
 **Aviso de privacidad:** `get_connection_password` devuelve intencionalmente el
@@ -269,11 +270,11 @@ Autenticación por llave en ssh/sftp: pasa `auth: "key"` y `key_name`
 
 ### Aviso de uso y seguridad
 
-En el primer inicio de la app o de un proceso MCP, GDW Vault muestra un aviso y
-requiere aceptación explícita antes de continuar. El aviso también está
+Al iniciar la interfaz de la app, GDW Vault muestra el aviso y requiere
+aceptación explícita. El servidor MCP no muestra este aviso al arrancar; sigue
 disponible en el menú de la barra de estado como **Seguridad y uso…**. La
-aceptación se guarda en las preferencias locales del usuario para esta versión
-del aviso.
+aceptación de la interfaz se guarda en las preferencias locales para esta
+versión del aviso.
 
 Los clientes MCP pueden invocar herramientas y transmitir al chat/modelo los
 datos que estas devuelvan. Algunas acciones permiten entregar secretos
@@ -316,17 +317,26 @@ Touch ID fresco.
 El contenido de llaves privadas se bloquea siempre y no se devuelve al chat,
 incluso si está habilitada la lectura de otros archivos sensibles.
 
-Para permitir una excepción, edita la conexión en la app de barra y activa
-**Permitir lectura de archivos sensibles**. Cada llamada todavía requiere
-`confirm=true` y Touch ID fresco; el permiso es independiente de `unsafe`, que
-controla escrituras. No se bloquea el nombre genérico `config.php`, porque
-aparece en muchas aplicaciones sin contener necesariamente credenciales.
+Los programas no reconocidos, intérpretes, comandos compuestos y ejecuciones de
+frameworks se clasifican genéricamente como **ejecución nativa**; no hace falta
+una regla por CMS. `ssh_native_exec` solo funciona en modo `unsafe` y pide Touch
+ID fresco directamente, sin un diálogo adicional. El motivo de Touch ID indica
+que el proceso conserva los permisos de la cuenta SSH; la autenticación **no es
+un sandbox**. `ssh_exec` también eleva comandos no reconocidos o compuestos a
+ejecución nativa, para evitar eludir la regla mediante un intérprete dentro de
+una cadena.
+
+Para permitir una excepción a la detección de referencias directas, edita la
+conexión en la app de barra y activa **Permitir lectura de archivos sensibles**.
+Cada referencia detectada requiere `confirm=true` y Touch ID. No se bloquea el
+nombre genérico `config.php`, porque aparece en muchas aplicaciones sin contener
+necesariamente credenciales.
 
 Este filtro por nombre es una defensa adicional y no sustituye los permisos del
-servidor: normaliza comillas y escapes comunes, pero no interpreta toda la
-gramática de un shell; expansiones, alias o rutas indirectas aún pueden eludir
-una comprobación textual. Para impedir realmente el acceso, usa una cuenta SSH
-con permisos Unix mínimos o una cuenta SFTP restringida en el servidor.
+servidor. Solo reconoce referencias explícitas: un framework puede cargar
+indirectamente su configuración al arrancar, y el filtro no lo detectará. Para
+restringir realmente lo que un programa nativo puede leer o modificar, usa una
+cuenta SSH y una cuenta de base de datos con permisos mínimos o un entorno aislado.
 
 ### Entrega de secretos a CLIs (`run_with_secret`)
 
@@ -385,20 +395,21 @@ remoto, o expón el servicio por un túnel propio.
 ### Modos de seguridad por conexión
 
 Cada conexión mysql/postgres/ssh/sftp tiene un campo **«Modo»** en el
-formulario que gobierna qué puede ejecutar el MCP (`db_query` y `ssh_exec`):
+formulario que gobierna qué puede ejecutar el MCP (`db_query`, `ssh_exec` y
+`ssh_native_exec`):
 
 Aplica a SQL (`db_query`), SSH (`ssh_exec`), CLIs locales (`run_with_secret`) y
 HTTP (`http_request`; lo destructivo es `DELETE`).
 
-| Modo | Lectura | Escritura moderada¹ | Destructiva² |
-|---|---|---|---|
-| **Lectura** (default) | ✅ sin prompt | 🔒 bloqueado | 🔒 bloqueado |
-| **Info** | ✅ sin prompt | 🔒 + comando para consola | 🔒 + comando para consola |
-| **Edición** | ✅ sin prompt | ✅ `confirm=true` + huella fresca | 🔒 + comando para consola |
-| **Unsafe** | ✅ sin prompt | ✅ `confirm=true` + huella fresca | ✅ `confirm=true` + huella fresca |
+| Modo | Lectura | Escritura moderada¹ | Destructiva² | Nativa/arbitraria |
+|---|---|---|---|---|
+| **Lectura** (default) | ✅ allowlist acotada | 🔒 bloqueado | 🔒 bloqueado | 🔒 bloqueada |
+| **Info** | ✅ allowlist acotada | 🔒 + comando para consola | 🔒 + comando para consola | 🔒 bloqueada |
+| **Edición** | ✅ allowlist acotada | ✅ `confirm=true` + huella fresca | 🔒 + comando para consola | 🔒 bloqueada |
+| **Unsafe** | ✅ allowlist acotada | ✅ `confirm=true` + huella fresca | ✅ `confirm=true` + huella fresca | ✅ huella fresca directa |
 
-¹ SQL: `INSERT`, `UPDATE` · SSH: `mkdir`, `cp`, `tar`, `>`, `>>`, `tee`, `sed -i`
-² SQL: `DELETE`, `DROP`, `TRUNCATE`, `ALTER` · SSH: `rm`, `dd`, `chmod/chown`, `kill`, `systemctl`, `apt`, `find -delete`…
+¹ SQL: `INSERT`, `UPDATE` · SSH: cambios conocidos como `mkdir`, `cp`, `touch`
+² SQL: `DELETE`, `DROP`, `TRUNCATE`, `ALTER` · SSH: `rm`, `dd`, `chmod/chown`, `kill`, `systemctl`, `apt`… Los comandos desconocidos o compuestos se elevan a ejecución nativa.
 
 Otras protecciones incluidas:
 
@@ -412,18 +423,18 @@ Otras protecciones incluidas:
 - Macs sin Touch ID piden el password de sesión; sin ninguna
   autenticación configurada, la operación se rechaza.
 
-> **Regla práctica para investigaciones por SSH**: arma la cadena completa
-> en una sola llamada (`ssh_exec`) separando pasos con `&&` — el Touch ID
-> y la confirmación son **por llamada**, no por comando. Ejemplo:
+> **Ejecución compuesta por SSH**: encadenar pasos con `&&` se considera
+> ejecución nativa. Solo se ejecuta mediante `ssh_native_exec` en modo `unsafe`
+> y pide Touch ID fresco:
 >
 > ```
 > mkdir -p /tmp/inv && echo inicio > /tmp/inv/log.txt && \
 > grep ERROR /var/log/app.log >> /tmp/inv/log.txt && cat /tmp/inv/log.txt
 > ```
 >
-> Así una investigación de N pasos cuesta 1 confirmación + 1 huella.
-> Si un paso necesita algo destructivo, ese comando sale como script
-> de consola para ejecutarlo tú.
+> En modo Unsafe la cadena completa se ejecuta como código nativo; revisa cada
+> paso antes de autenticar. Touch ID autoriza la operación, pero no inspecciona
+> ni separa internamente sus pasos.
 
 ## Importar desde FileZilla
 

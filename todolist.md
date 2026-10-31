@@ -41,7 +41,7 @@
 - [x] Propagación de passwords por snapshot (sync v3) implementada previamente; actualmente desactivada
   y pendiente de reemplazo por una sincronización fiable entre Macs.
 - [x] Reglas de seguridad SQL (modos lectura/info/edición/unsafe) — `db_query`
-- [x] Reglas de seguridad SSH (mismos modos) — `ssh_exec`
+- [x] Reglas de seguridad SSH — allowlist acotada y ejecución nativa explícita/autorizada (`ssh_exec`, `ssh_native_exec`)
 - [x] Soporte PostgreSQL en `db_query`
 - [x] Ventana de gracia Touch ID (15 min) + auditoría `auth`
 - [x] Icono de barra de menús con logo GDW (template image)
@@ -49,6 +49,6 @@
 - [x] Botón «Copiar comando de conexión» en el menú
 - [x] Herramienta MCP `get_connection_command` con sugerencia de portapapeles
 - [x] Limpieza de repos obsoletos (gdw-vault-vscode-extension, mcp-touchid-hello, gdw-vault Laravel)
-- [x] Smoke test E2E del MCP (`tests/smoke_test.py`, 17 pruebas desatendidas + 4 interactivas con `--interactive`)
+- [x] Smoke test E2E del MCP (`tests/smoke_test.py`, 19 pruebas desatendidas + 4 interactivas con `--interactive`)
 - [x] Sincronización anterior mediante snapshot en iCloud Drive e iCloud Keychain; actualmente desactivada mientras se diseña la siguiente implementación.
 - [x] Cifrado de secretos en snapshots anteriores (AES-256-GCM); se conserva como antecedente, pero la app ya no importa ni exporta esos snapshots.

@@ -1,13 +1,7 @@
 import Foundation
 
-/// Ejecuta comandos remotos por SSH usando conexiones ssh/sftp del vault, con
-/// la misma política de modos que db_query (details.mode):
-///   lectura → solo comandos de lectura (ls, cat, df, ps…).
-///   info    → bloquea escritura y muestra el comando para consola.
-///   edicion → permite comandos moderados con confirm=true; bloquea destructivos.
-///   unsafe  → permite todo con confirm=true.
-/// Clasificación por listas: destructivos (rm, dd, chmod, kill, >, …) y de
-/// lectura (allowlist); todo lo demás es moderado.
+/// Ejecuta comandos remotos por SSH. Los comandos fuera de la allowlist acotada
+/// son ejecución nativa y requieren modo unsafe y Touch ID fresco.
 final class SshRunner {
     struct Result {
         let ok: Bool
@@ -17,7 +11,8 @@ final class SshRunner {
     private let store = Store.shared
     private let resolver = DbTunnel()
 
-    func exec(sshName: String, command: String, confirm: Bool, timeout: Int) -> Result {
+    func exec(sshName: String, command: String, confirm: Bool, timeout: Int,
+              nativeExecution: Bool = false) -> Result {
         let resolve = resolver.resolveConnection(name: sshName, protocols: DbTunnel.tunnelProtocols)
         guard case .found(let conn) = resolve else {
             switch resolve {
@@ -38,7 +33,7 @@ final class SshRunner {
         // Política según el modo — ANTES de tocar el Keychain (fail fast).
         let modeRaw = (details["mode"] ?? "lectura").lowercased()
         let mode = modeRaw == "safe" ? "lectura" : modeRaw
-        let tier = Self.classify(command)
+        let tier = nativeExecution ? SSHCommandTier.native : SSHCommandPolicy.classify(command)
         if let privateKeyFile = SensitiveFilePolicy.matchedPrivateKeyName(in: command) {
             return Result(
                 ok: false,
@@ -64,7 +59,31 @@ final class SshRunner {
         }
         let hostHint = host.isEmpty ? "(host)" : host
         let userHint = user.isEmpty ? "(usuario)" : user
-        if tier != .read {
+        guard !host.isEmpty, !user.isEmpty else {
+            return Result(ok: false, message: "La conexión '\(connName)' no tiene host o usuario guardado")
+        }
+        var nativeAuthorized = false
+        if tier == .native {
+            guard SSHCommandPolicy.allowsNativeExecution(mode: mode) else {
+                let guidance = mode == "info"
+                    ? "El modo info no ejecuta código nativo."
+                    : "Cambia esta conexión a modo unsafe para permitirlo."
+                return Result(ok: false, message: """
+                🔒 Ejecución nativa bloqueada en modo '\(mode)'. \(guidance)
+                Un proceso nativo puede acceder a los archivos y datos disponibles para esta cuenta SSH.
+
+                Destino: \(userHint)@\(hostHint):\(port)
+                Comando:
+                \(command)
+                """)
+            }
+            nativeAuthorized = AuthSession.shared.forceAuthorize(
+                reason: "GDW Vault: ejecutar código nativo por SSH en \(connName), \(userHint)@\(hostHint):\(port). El proceso tendrá los permisos de esa cuenta."
+            )
+            guard nativeAuthorized else {
+                return Result(ok: false, message: "Touch ID rechazado para ejecución nativa")
+            }
+        } else if tier != .read {
             switch mode {
             case "edicion":
                 if tier == .destructive {
@@ -110,10 +129,7 @@ final class SshRunner {
             }
         }
 
-        // Guardas de datos completos: llave SSH o password.
-        guard !host.isEmpty, !user.isEmpty else {
-            return Result(ok: false, message: "La conexión '\(connName)' no tiene host o usuario guardado")
-        }
+        // Guarda de credenciales: llave SSH o password.
         // Autenticación por llave si la conexión tiene una asignada.
         var keyPath: String?
         if let keyId = conn["key_id"] as? Int,
@@ -131,9 +147,12 @@ final class SshRunner {
             AuthSession.shared.markSecretUsed(account: conn["keychain_account"] as? String ?? "")
         }
 
-        // Las lecturas sensibles usan su propia ventana; escrituras siempre frescas.
+        // La ejecución nativa ya exigió consentimiento y Touch ID frescos antes
+        // de consultar el Keychain; no se reutiliza esa autorización.
         let granted: Bool
-        if let sensitiveFile, tier == .read {
+        if nativeAuthorized {
+            granted = true
+        } else if let sensitiveFile, tier == .read {
             granted = AuthSession.shared.authorizeSensitiveRead(
                 account: conn["keychain_account"] as? String ?? "",
                 reason: "GDW Vault: leer el archivo sensible \"\(sensitiveFile)\" de \"\(connName)\"."
@@ -183,53 +202,6 @@ final class SshRunner {
             return Result(ok: false, message: "El comando terminó con código \(status):\n\(trimmed)")
         }
         return Result(ok: true, message: trimmed.isEmpty ? "(sin salida)" : trimmed)
-    }
-
-    // MARK: - Clasificación
-
-    enum SshTier { case read, moderate, destructive }
-
-    /// Destructivos: patrones que borran, sobreescriben el sistema, cambian
-    /// permisos, matan procesos o instalan. Se buscan en TODO el comando
-    /// (cubre cadenas con &&, ;, |). La escritura de archivos (>, >>, tee,
-    /// sed -i) es MODERADA: permite flujos de investigación con logs en modo
-    /// edición. Lectura: allowlist de comandos seguros. Resto: moderado.
-    static func classify(_ command: String) -> SshTier {
-        let lower = command.lowercased()
-        let destructive = [
-            "rm ", "rm -", "rmdir", "shred", "dd ", "mkfs", "shutdown", "reboot",
-            "halt", "poweroff", "init 0", "init 6", "kill ", "killall", "pkill",
-            "userdel", "groupdel", "passwd", "visudo", "fdisk", "parted",
-            "truncate ", "chown", "chmod", "chgrp", "mv ", "perl -i",
-            "apt ", "apt-get", "yum ", "dnf ", "pacman -",
-            "systemctl", "service ", "crontab", "scp ", "rsync", "wget ",
-            "curl ", "pip ", "npm ", "composer ", "git push", "git reset",
-            "git clean", "find /", "-delete", "-exec ",
-        ]
-        if destructive.contains(where: lower.contains) { return .destructive }
-
-        let first = lower.split(separator: " ").first.map(String.init) ?? ""
-        let readAllow: Set<String> = [
-            "ls", "cat", "head", "tail", "grep", "find", "df", "du", "free",
-            "uptime", "who", "w", "ps", "uname", "hostname", "date", "echo",
-            "pwd", "env", "printenv", "stat", "file", "wc", "sort", "uniq",
-            "md5sum", "sha256sum", "which", "id", "groups", "last", "history",
-            "netstat", "ss", "ifconfig", "ip", "ping", "dig", "nslookup",
-            "crontab", "git", "tar", "mysql", "psql", "php", "node", "python",
-            "python3", "composer", "artisan", "wp",
-        ]
-        // Comandos de lectura con subcomandos/flags de escritura conocidos.
-        if first == "git" {
-            let sub = lower.split(separator: " ").dropFirst().first.map(String.init) ?? ""
-            return ["status", "log", "diff", "branch", "show", "remote", "tag"].contains(sub) ? .read : .moderate
-        }
-        if first == "tar" {
-            return lower.contains("-t") || lower.contains("--list") ? .read : .moderate
-        }
-        if first == "crontab" {
-            return lower.contains("-l") ? .read : .moderate
-        }
-        return readAllow.contains(first) ? .read : .moderate
     }
 
     // MARK: - Ejecución

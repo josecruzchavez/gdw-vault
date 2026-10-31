@@ -7,7 +7,6 @@ struct VaultMain {
 
         // Modo servidor MCP para VS Code: gdw-vault --mcp
         if args.contains("--mcp") {
-            guard UsageNotice.requireAcceptance() else { return }
             setvbuf(stdout, nil, _IOLBF, 0)
             McpServer().run()
             return

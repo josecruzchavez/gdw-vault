@@ -1,5 +1,17 @@
 # Historial de cambios
 
+## Próximo
+
+- **SSH y procesos con secretos**: intérpretes, programas no reconocidos y
+  comandos compuestos se clasifican como ejecución nativa, no como lectura. Se
+  añade `ssh_native_exec`, restringido a modo `unsafe`, con Touch ID fresco. No
+  se interpone un diálogo extra; el motivo de Touch ID informa del alcance. La
+  autenticación no es un sandbox: el proceso conserva los permisos de su cuenta.
+- El proceso MCP ya no muestra el aviso de uso al arrancar; el aviso sigue
+  disponible desde la interfaz de la app.
+- La política genérica de ejecución nativa también se aplica a `run_with_secret`;
+  no requiere enumerar CMS o frameworks.
+
 ## 1.5.0 — 2026-10-19
 
 - **`run_with_secret`**: entrega el secreto de una conexión a un CLI local por
