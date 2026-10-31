@@ -1,5 +1,10 @@
 # Historial de cambios
 
+## 1.6.2 — 2026-10-31
+
+- Corrige los permisos ejecutables de los scripts del instalador `.pkg` y
+  valida esos permisos en el workflow antes de construir el paquete.
+
 ## 1.6.1 — 2026-10-31
 
 - La instalación con Homebrew registra el LaunchAgent/XPC y enlaza el comando

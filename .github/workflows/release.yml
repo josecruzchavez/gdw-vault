@@ -142,6 +142,12 @@ jobs:
 
           ditto -c -k --sequesterRsrc --keepParent \
             "$APP_PATH" "$DIST_DIR/$ZIP_NAME"
+          for script in "$GITHUB_WORKSPACE/scripts/pkg/preinstall" "$GITHUB_WORKSPACE/scripts/pkg/postinstall"; do
+            if [[ ! -x "$script" ]]; then
+              echo "El script del paquete no es ejecutable: $script" >&2
+              exit 1
+            fi
+          done
           pkgbuild \
             --component "$APP_PATH" \
             --install-location /Applications \
