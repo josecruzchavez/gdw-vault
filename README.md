@@ -128,8 +128,25 @@ También se publican un `.zip` y `SHA256SUMS.txt` para verificar los archivos.
 
 El `.pkg` firmado y notarizado ofrece una instalación automatizada: instala la
 app, registra el LaunchAgent y agrega el comando `gdw-vault`. El `.dmg` y el
-`.zip` solo instalan la app; usa Homebrew o el `.pkg` para automatizar la
-configuración del servicio y la CLI.
+`.zip` solo instalan la app. Para la mayoría de los usuarios recomendamos el
+`.pkg`; si prefieres Homebrew, el Cask automatiza la misma configuración.
+
+#### Configurar el CLI después de instalar el `.dmg` o `.zip`
+
+La app debe estar en `/Applications/GDW Vault.app`. Si todavía no existe
+`/usr/local/bin/gdw-vault`, ejecuta:
+
+```bash
+APP="/Applications/GDW Vault.app"
+sudo mkdir -p /usr/local/bin
+sudo ln -s "$APP/Contents/MacOS/GDW Vault" /usr/local/bin/gdw-vault
+"$APP/Contents/Resources/InstallSupport/setup-launch-agent.sh" install
+```
+
+El enlace requiere una cuenta de administrador; el helper registra el inicio
+automático y el servicio XPC para CLI/MCP. No vuelvas a crear el enlace si ya
+existe. Comprueba el resultado con `which gdw-vault` y `gdw-vault version`.
+La configuración del cliente MCP (por ejemplo, VS Code) sigue siendo aparte.
 
 ### Instalar desde el código fuente
 

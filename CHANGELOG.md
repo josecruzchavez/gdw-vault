@@ -6,6 +6,8 @@
   `gdw-vault`; al desinstalar conserva la base de datos y el Llavero.
 - El release incluye un `.pkg` universal firmado con Developer ID Installer y
   notarizado, con alta del LaunchAgent y un desinstalador que conserva los datos.
+- Se recomienda el `.pkg` para la instalación completa; la guía explica cómo
+  habilitar manualmente el CLI/XPC al elegir el `.dmg` o `.zip`.
 
 ## 1.6.0 — 2026-10-31
 
