@@ -42,7 +42,8 @@ se guardan en los artefactos del release.
 
 ## Publicar una versión
 
-1. Actualiza `VERSION` y agrega las notas correspondientes en `CHANGELOG.md`.
+1. Actualiza `VERSION`, los enlaces de descarga versionados en `README.md` y
+   agrega las notas correspondientes en `CHANGELOG.md`.
 2. Sube esos cambios a la rama principal.
 3. Crea y publica un tag que coincida exactamente con `VERSION`; para `1.6.1`:
 

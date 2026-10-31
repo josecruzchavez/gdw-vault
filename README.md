@@ -1,6 +1,7 @@
 # GDW Vault
 
-**Bóveda local de conexiones para macOS, con integración MCP y autorización explícita.**
+**Bóveda local de conexiones para macOS, gratis, con integración MCP y
+autorización explícita.**
 
 GDW Vault organiza conexiones SSH, SFTP, FTP, bases de datos, sitios web y APIs.
 La aplicación nativa está escrita 100% en Swift y no requiere dependencias
@@ -13,9 +14,12 @@ Al conectarse a un servidor remoto, la aplicación envía las credenciales
 necesarias a ese destino.
 
 - **Versión:** [VERSION](./VERSION)
+- **Costo:** gratis; descarga y uso sin costo. Donaciones opcionales.
 - **CLI:** `gdw-vault version`
-- **Descarga:** [última release de GitHub](https://github.com/josecruzchavez/gdw-vault/releases/latest)
+- **Descargar ahora (recomendado):** [instalador `.pkg` v1.6.2](https://github.com/josecruzchavez/gdw-vault/releases/latest/download/GDW-Vault-1.6.2-universal.pkg)
+- **Otras descargas y versiones:** [GitHub Releases](https://github.com/josecruzchavez/gdw-vault/releases/latest)
 - **Homebrew:** [tap de GDW Vault](https://github.com/josecruzchavez/homebrew-gdw-vault)
+- **Código fuente (opcional):** [guía para compilar e instalar](./DEVELOPMENT.md)
 - **Cambios:** [CHANGELOG.md](./CHANGELOG.md)
 - **Sitio:** [vault.gdw.mx](https://vault.gdw.mx)
 - **Guía de releases:** [RELEASING.md](./RELEASING.md)
@@ -25,9 +29,11 @@ necesarias a ese destino.
 
 - [Qué problema resuelve](#qué-problema-resuelve)
 - [Características](#características)
+- [Costo y donaciones](#costo-y-donaciones-pricing)
 - [Requisitos](#requisitos)
 - [Instalación, actualización y desinstalación](#instalación-actualización-y-desinstalación)
 - [Instalación desde una release](#instalación-desde-una-release)
+- [Compilar e instalar desde el código fuente](./DEVELOPMENT.md)
 - [Uso](#uso)
 - [Integración MCP](#integración-mcp)
 - [Aviso de uso y seguridad](#aviso-de-uso-y-seguridad)
@@ -70,10 +76,20 @@ según el modo de cada conexión.
 - **CLI:** listar, importar, eliminar o ejecutar un proceso local con un secreto
   inyectado sin ponerlo en los argumentos.
 
+## Costo y donaciones (Pricing)
+
+**GDW Vault es gratis y no tiene costo de descarga ni de uso.** Precio: **$0**.
+Puedes instalarla y usar todas las funciones disponibles sin pago, suscripción
+ni compras dentro de la aplicación. Las donaciones son voluntarias, no son
+necesarias para usar GDW Vault y no desbloquean funciones.
+
+**English:** GDW Vault is free of charge: **$0 to download, install, and use**.
+No payment, subscription, or in-app purchase is required. Donations are
+optional and do not unlock features.
+
 ## Requisitos
 
 - macOS 13 (Ventura) o posterior.
-- Git y Xcode Command Line Tools para compilar desde el código.
 - Acceso de red a los servidores a los que quieras conectarte.
 - Touch ID es opcional: macOS puede pedir la contraseña de inicio de sesión
   como alternativa para autorizar operaciones sensibles.
@@ -93,8 +109,9 @@ según el modo de cada conexión.
 
 ## Instalación, actualización y desinstalación
 
-Puedes descargar una versión ya compilada o compilarla desde el código fuente.
-Para compilar necesitas macOS 13 o posterior y Xcode Command Line Tools.
+La aplicación está disponible ya compilada; no necesitas clonar ni compilar el
+código para instalarla. Si quieres compilarla desde el código fuente, consulta
+la [guía de desarrollo](./DEVELOPMENT.md).
 
 ### Instalación completa con Homebrew
 
@@ -117,19 +134,21 @@ del Llavero.
 
 ### Instalación desde una release
 
-Descarga la versión más reciente desde [GitHub Releases](https://github.com/josecruzchavez/gdw-vault/releases/latest).
-Abre el archivo `GDW-Vault-<versión>-universal.dmg` y arrastra **GDW Vault.app**
-a **Aplicaciones**. Después, abre la app. El DMG también incluye un enlace a
-la carpeta Aplicaciones. Esta versión universal funciona en Macs Apple Silicon
-e Intel, y está firmada y notarizada por Apple. No necesitas clonar el
-repositorio ni compilar el código.
+Descargas directas de la release actual **v1.6.2**:
 
-También se publican un `.zip` y `SHA256SUMS.txt` para verificar los archivos.
+- [Instalador recomendado `.pkg`](https://github.com/josecruzchavez/gdw-vault/releases/latest/download/GDW-Vault-1.6.2-universal.pkg): instala la app y configura el servicio y la CLI.
+- [App `.dmg`](https://github.com/josecruzchavez/gdw-vault/releases/latest/download/GDW-Vault-1.6.2-universal.dmg): abre el disco y arrastra **GDW Vault.app** a **Aplicaciones**.
+- [App `.zip`](https://github.com/josecruzchavez/gdw-vault/releases/latest/download/GDW-Vault-1.6.2-universal.zip): alternativa al DMG para instalación manual.
+- [Checksums SHA-256](https://github.com/josecruzchavez/gdw-vault/releases/latest/download/SHA256SUMS.txt).
 
-El `.pkg` firmado y notarizado ofrece una instalación automatizada: instala la
-app, registra el LaunchAgent y agrega el comando `gdw-vault`. El `.dmg` y el
-`.zip` solo instalan la app. Para la mayoría de los usuarios recomendamos el
-`.pkg`; si prefieres Homebrew, el Cask automatiza la misma configuración.
+La app universal funciona en Macs Apple Silicon e Intel, y está firmada y
+notarizada por Apple. No necesitas clonar el repositorio ni compilar el código.
+Consulta [GitHub Releases](https://github.com/josecruzchavez/gdw-vault/releases/latest)
+para ver versiones anteriores y sus notas.
+
+El `.pkg` firmado y notarizado ofrece una instalación automatizada; el `.dmg`
+y el `.zip` solo instalan la app. Si prefieres Homebrew, el Cask automatiza la
+misma configuración.
 
 #### Configurar el CLI después de instalar el `.dmg` o `.zip`
 
@@ -148,60 +167,10 @@ automático y el servicio XPC para CLI/MCP. No vuelvas a crear el enlace si ya
 existe. Comprueba el resultado con `which gdw-vault` y `gdw-vault version`.
 La configuración del cliente MCP (por ejemplo, VS Code) sigue siendo aparte.
 
-### Instalar desde el código fuente
-
-#### Primera instalación
-
-```bash
-./build.sh && ./install.sh
-```
-
-`install.sh` hace tres cosas:
-
-1. Copia el `.app` a `/Applications` y lo firma con la identidad configurada
-   (`GDW_SIGN_IDENTITY`, por defecto `GDW Development`) si está disponible;
-   de lo contrario usa firma ad-hoc. Si se usa Developer ID, aplica Hardened
-   Runtime y timestamp. La firma local no sustituye la notarización necesaria
-   para distribuir la app; consulta la [guía de releases](./RELEASING.md).
-2. Crea `~/Library/LaunchAgents/mx.gdw.vault.plist` → la app arranca
-   sola al iniciar sesión (icono en la barra de estado, sin terminal).
-3. Actualiza el wrapper `gdw-vault` del proyecto para que CLI y MCP usen la
-   app instalada.
-
-Para obtener el código fuente desde GitHub:
-
-```bash
-git clone https://github.com/josecruzchavez/gdw-vault.git
-cd gdw-vault
-./build.sh && ./install.sh
-```
-
-### Actualizar a una nueva versión
-
-El flujo ante mejoras siempre es el mismo — instalar sobre una versión
-previa **es** la actualización:
-
-```bash
-# 1. Actualiza VERSION con el número de la nueva versión
-
-# 2. recompila y reinstala
-./build.sh && ./install.sh
-
-# 3. verifica
-gdw-vault version
-```
-
-`install.sh` reemplaza la app en `/Applications` y reinicia el LaunchAgent.
-**Tus datos nunca se tocan**: la base de datos
-(`~/Library/Application Support/GDWVault/vault.db`) y los secretos del
-Keychain persisten entre versiones. Si una versión cambia el esquema de la
-base, la app lo migra sola al arrancar (anotado en el historial de versiones).
-
 ### Desinstalar
 
-```bash
-./install.sh uninstall
-```
+Para desinstalar una instalación compilada desde el código fuente, sigue la
+[guía de desarrollo](./DEVELOPMENT.md#desinstalar-una-instalación-local).
 
 Si instalaste con Homebrew, ejecuta `brew uninstall --cask gdw-vault`. Para una
 instalación desde `.pkg`, ejecuta:
@@ -535,11 +504,12 @@ instancias de distintos chats compitan directamente por la base.
 La app de barra usa un bloqueo de instancia y el LaunchAgent la vuelve a
 iniciar tras una salida anormal. Un vigilante detecta si el hilo principal no
 responde durante 45 segundos y sale para que LaunchAgent recupere la app. Una
-salida normal desde el menú **Salir** no la reinicia. Después de actualizar,
-ejecuta `./build.sh && ./install.sh` para registrar el servicio XPC en el
-LaunchAgent. Los errores XPC y SQL se registran en Console como `GDW Vault`; si
-la app sigue congelándose, esos registros y el informe de fallo de macOS
-ayudarán a identificar la causa concreta.
+salida normal desde el menú **Salir** no la reinicia. Al instalar o actualizar
+con el `.pkg` o Homebrew, se registra el servicio XPC en el LaunchAgent. Para
+instalaciones compiladas localmente, consulta la
+[guía de desarrollo](./DEVELOPMENT.md). Los errores XPC y SQL se registran en
+Console como `GDW Vault`; si la app sigue congelándose, esos registros y el
+informe de fallo de macOS ayudarán a identificar la causa concreta.
 
 Las eliminaciones de conexiones y llaves agrupan sus cambios relacionados en
 una transacción SQLite, para no dejar tombstones o referencias a medias si una
@@ -583,8 +553,6 @@ cada proveedor antes de tomar decisiones.
 - Diseñar e implementar sincronización entre Macs (evaluar CloudKit/CKSyncEngine).
   Hasta entonces, la sincronización con iCloud permanece desactivada y los datos
   locales siguen funcionando de forma independiente.
-- Completar un instalador de release que configure el LaunchAgent y el wrapper
-  CLI/MCP sin compilar desde el código fuente.
 - Instalador remoto mediante `curl` y publicación en Homebrew, con artefactos
   verificables y un flujo de actualización.
 - Extensión de VS Code para registrar GDW Vault MCP automáticamente, sin editar

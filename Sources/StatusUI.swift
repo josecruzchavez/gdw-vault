@@ -11,7 +11,8 @@ final class StatusUI: NSObject, NSApplicationDelegate, NSMenuDelegate {
         ("josecruzchavez.com", "https://josecruzchavez.com"),
         ("Sitio del proyecto · vault.gdw.mx", "https://vault.gdw.mx"),
         ("GDW · desarrollos", "https://gdw.mx"),
-        ("Código fuente en GitHub", "https://github.com/josecruzchavez/gdw-vault")
+        ("Código fuente en GitHub", "https://github.com/josecruzchavez/gdw-vault"),
+        ("Invítame un cafecito", "https://www.paypal.com/paypalme/gestiondigitalweb")
     ]
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -394,10 +395,17 @@ final class StatusUI: NSObject, NSApplicationDelegate, NSMenuDelegate {
         Desarrollado por GDW · José Cruz Chávez
         """
         alert.alertStyle = .informational
-        let linksView = NSView(frame: NSRect(x: 0, y: 0, width: 300, height: 94))
+        let linkRowHeight: CGFloat = 24
+        let linksViewHeight = CGFloat(aboutLinks.count) * linkRowHeight - 2
+        let linksView = NSView(frame: NSRect(x: 0, y: 0, width: 300, height: linksViewHeight))
         for (index, link) in aboutLinks.enumerated() {
             let button = NSButton(title: link.title, target: self, action: #selector(openAboutLinkButton(_:)))
-            button.frame = NSRect(x: 0, y: CGFloat(3 - index) * 24, width: 300, height: 22)
+            button.frame = NSRect(
+                x: 0,
+                y: CGFloat(aboutLinks.count - index - 1) * linkRowHeight,
+                width: 300,
+                height: 22
+            )
             button.isBordered = false
             button.alignment = .left
             button.tag = index
