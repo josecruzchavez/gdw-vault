@@ -560,3 +560,17 @@ cada proveedor antes de tomar decisiones.
   MCP compatibles.
 - Administración de grupos (renombrar/eliminar) desde la GUI.
 - Export/backup cifrado.
+
+## Términos de búsqueda / Search terms
+
+GDW Vault es un **gestor de conexiones para macOS** y una **bóveda local de
+credenciales** para SSH/SFTP, MySQL, PostgreSQL y APIs. Incluye un **servidor
+MCP para VS Code y GitHub Copilot** e importación de conexiones de FileZilla.
+
+**Búsquedas relacionadas:** gestor de conexiones macOS, administrador SSH
+para Mac, bóveda local de credenciales, servidor MCP macOS, MCP para VS Code,
+MCP para MySQL y PostgreSQL, importar sitios de FileZilla.
+
+**Related search terms:** macOS connection manager, SSH/SFTP manager, local
+secrets vault, MCP server for VS Code and GitHub Copilot, MySQL/PostgreSQL MCP
+server, FileZilla connection importer.
