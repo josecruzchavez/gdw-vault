@@ -15,10 +15,11 @@ APP_DIR="$(cd "$(dirname "$0")" && pwd)/build/$APP_NAME.app"
 INSTALLED_APP="/Applications/$APP_NAME.app"
 PLIST="$HOME/Library/LaunchAgents/mx.gdw.vault.plist"
 WRAPPER="$(cd "$(dirname "$0")" && pwd)/gdw-vault"
+LAUNCH_AGENT_HELPER="$(dirname "$0")/scripts/setup-launch-agent.sh"
 
 uninstall() {
     echo "==> Deteniendo y desinstalando…"
-    launchctl bootout "gui/$(id -u)" "$PLIST" 2>/dev/null || true
+    "$LAUNCH_AGENT_HELPER" remove
     rm -f "$PLIST"
     rm -rf "$INSTALLED_APP"
     echo "✓ Desinstalado. La base de datos (~/Library/Application Support/GDWVault) y el Keychain se conservan."
@@ -49,36 +50,9 @@ rm -rf "$INSTALLED_APP"
 cp -R "$APP_DIR" "$INSTALLED_APP"
 codesign --verify --strict "$INSTALLED_APP"
 
-# 2. LaunchAgent: arranca al iniciar sesión
-echo "==> Creando LaunchAgent…"
-mkdir -p "$HOME/Library/LaunchAgents"
-cat > "$PLIST" <<PLIST
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>mx.gdw.vault</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>$INSTALLED_APP/Contents/MacOS/$APP_NAME</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>KeepAlive</key>
-    <dict>
-        <key>SuccessfulExit</key>
-        <false/>
-    </dict>
-    <key>MachServices</key>
-    <dict>
-        <key>mx.gdw.vault.db.$(id -u)</key>
-        <true/>
-    </dict>
-</dict>
-</plist>
-PLIST
-launchctl bootstrap "gui/$(id -u)" "$PLIST"
+# 2. LaunchAgent: arranca al iniciar sesión y registra el servicio XPC
+echo "==> Registrando LaunchAgent…"
+GDW_VAULT_APP_PATH="$INSTALLED_APP" "$LAUNCH_AGENT_HELPER" install
 
 # Eliminar la copia de build/: solo debe existir UNA app (la instalada),
 # si no Spotlight/Launchpad la muestran duplicada.

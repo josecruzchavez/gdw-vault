@@ -1,0 +1,12 @@
+#!/bin/bash
+set -euo pipefail
+
+CLI_PATH="/usr/local/bin/gdw-vault"
+APP_EXECUTABLE="/Applications/GDW Vault.app/Contents/MacOS/GDW Vault"
+
+if [[ -e "$CLI_PATH" || -L "$CLI_PATH" ]]; then
+    if [[ ! -L "$CLI_PATH" || "$(/usr/bin/readlink "$CLI_PATH")" != "$APP_EXECUTABLE" ]]; then
+        echo "No se instalará GDW Vault: $CLI_PATH ya existe y no pertenece a esta app." >&2
+        exit 1
+    fi
+fi

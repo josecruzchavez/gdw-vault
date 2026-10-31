@@ -1,5 +1,12 @@
 # Historial de cambios
 
+## 1.6.1 — 2026-10-31
+
+- La instalación con Homebrew registra el LaunchAgent/XPC y enlaza el comando
+  `gdw-vault`; al desinstalar conserva la base de datos y el Llavero.
+- El release incluye un `.pkg` universal firmado con Developer ID Installer y
+  notarizado, con alta del LaunchAgent y un desinstalador que conserva los datos.
+
 ## 1.6.0 — 2026-10-31
 
 - **SSH y procesos con secretos**: intérpretes, programas no reconocidos y

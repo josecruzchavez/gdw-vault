@@ -16,6 +16,9 @@ jobs:
       APPLE_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
       APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
       DEVELOPER_ID_APPLICATION: ${{ secrets.DEVELOPER_ID_APPLICATION }}
+      APPLE_INSTALLER_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_INSTALLER_CERTIFICATE_P12_BASE64 }}
+      APPLE_INSTALLER_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_INSTALLER_CERTIFICATE_PASSWORD }}
+      DEVELOPER_ID_INSTALLER: ${{ secrets.DEVELOPER_ID_INSTALLER }}
       APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
       APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
       APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
@@ -36,25 +39,31 @@ jobs:
           fi
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
-      - name: Import Developer ID certificate
+      - name: Import Developer ID certificates
         run: |
           : "${APPLE_CERTIFICATE_P12_BASE64:?Falta el secreto APPLE_CERTIFICATE_P12_BASE64}"
           : "${APPLE_CERTIFICATE_PASSWORD:?Falta el secreto APPLE_CERTIFICATE_PASSWORD}"
           : "${DEVELOPER_ID_APPLICATION:?Falta el secreto DEVELOPER_ID_APPLICATION}"
+          : "${APPLE_INSTALLER_CERTIFICATE_P12_BASE64:?Falta el secreto APPLE_INSTALLER_CERTIFICATE_P12_BASE64}"
+          : "${APPLE_INSTALLER_CERTIFICATE_PASSWORD:?Falta el secreto APPLE_INSTALLER_CERTIFICATE_PASSWORD}"
+          : "${DEVELOPER_ID_INSTALLER:?Falta el secreto DEVELOPER_ID_INSTALLER}"
           : "${APPLE_API_KEY_P8_BASE64:?Falta el secreto APPLE_API_KEY_P8_BASE64}"
           : "${APPLE_API_KEY_ID:?Falta el secreto APPLE_API_KEY_ID}"
           : "${APPLE_API_ISSUER_ID:?Falta el secreto APPLE_API_ISSUER_ID}"
 
           KEYCHAIN_PATH="$RUNNER_TEMP/gdw-vault-signing.keychain-db"
           KEYCHAIN_PASSWORD="$(openssl rand -base64 32)"
+          echo "::add-mask::$KEYCHAIN_PASSWORD"
           CERTIFICATE_PATH="$RUNNER_TEMP/developer-id.p12"
+          INSTALLER_CERTIFICATE_PATH="$RUNNER_TEMP/developer-id-installer.p12"
           printf '%s' "$APPLE_CERTIFICATE_P12_BASE64" | base64 -D > "$CERTIFICATE_PATH"
+          printf '%s' "$APPLE_INSTALLER_CERTIFICATE_P12_BASE64" | base64 -D > "$INSTALLER_CERTIFICATE_PATH"
 
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           {
             echo "KEYCHAIN_PATH=$KEYCHAIN_PATH"
-            echo "KEYCHAIN_PASSWORD=$KEYCHAIN_PASSWORD"
             echo "CERTIFICATE_PATH=$CERTIFICATE_PATH"
+            echo "INSTALLER_CERTIFICATE_PATH=$INSTALLER_CERTIFICATE_PATH"
           } >> "$GITHUB_ENV"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
@@ -63,15 +72,23 @@ jobs:
             -P "$APPLE_CERTIFICATE_PASSWORD" \
             -T /usr/bin/codesign \
             -T /usr/bin/security
+          security import "$INSTALLER_CERTIFICATE_PATH" \
+            -k "$KEYCHAIN_PATH" \
+            -P "$APPLE_INSTALLER_CERTIFICATE_PASSWORD" \
+            -T /usr/bin/pkgbuild \
+            -T /usr/bin/productbuild \
+            -T /usr/bin/productsign \
+            -T /usr/bin/security
           security set-key-partition-list \
             -S apple-tool:,apple:,codesign: \
             -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security list-keychains -d user -s \
             "$KEYCHAIN_PATH" "$HOME/Library/Keychains/login.keychain-db"
 
-          IDENTITIES="$(security find-identity -v -p codesigning "$KEYCHAIN_PATH")"
-          if ! grep -Fq "$DEVELOPER_ID_APPLICATION" <<< "$IDENTITIES"; then
-            echo "El certificado importado no contiene la identidad solicitada." >&2
+          IDENTITIES="$(security find-identity -v "$KEYCHAIN_PATH")"
+          if ! grep -Fq "$DEVELOPER_ID_APPLICATION" <<< "$IDENTITIES" ||
+             ! grep -Fq "$DEVELOPER_ID_INSTALLER" <<< "$IDENTITIES"; then
+            echo "Los certificados importados no contienen las identidades solicitadas." >&2
             exit 1
           fi
 
@@ -106,6 +123,7 @@ jobs:
           mkdir -p "$DIST_DIR"
           DMG_NAME="GDW-Vault-$VERSION-universal.dmg"
           ZIP_NAME="GDW-Vault-$VERSION-universal.zip"
+          PKG_NAME="GDW-Vault-$VERSION-universal.pkg"
           DMG_STAGE="$RUNNER_TEMP/dmg-stage"
           mkdir -p "$DMG_STAGE"
           ditto "$APP_PATH" "$DMG_STAGE/GDW Vault.app"
@@ -124,21 +142,39 @@ jobs:
 
           ditto -c -k --sequesterRsrc --keepParent \
             "$APP_PATH" "$DIST_DIR/$ZIP_NAME"
+          pkgbuild \
+            --component "$APP_PATH" \
+            --install-location /Applications \
+            --scripts "$GITHUB_WORKSPACE/scripts/pkg" \
+            --identifier mx.gdw.vault.installer \
+            --version "$VERSION" \
+            --sign "$DEVELOPER_ID_INSTALLER" \
+            "$DIST_DIR/$PKG_NAME"
+          pkgutil --check-signature "$DIST_DIR/$PKG_NAME"
+          xcrun notarytool submit "$DIST_DIR/$PKG_NAME" \
+            --key "$NOTARY_KEY_PATH" \
+            --key-id "$APPLE_API_KEY_ID" \
+            --issuer "$APPLE_API_ISSUER_ID" \
+            --wait
+          xcrun stapler staple "$DIST_DIR/$PKG_NAME"
+          spctl --assess --type install --verbose=4 "$DIST_DIR/$PKG_NAME"
           (
             cd "$DIST_DIR"
-            shasum -a 256 "$DMG_NAME" "$ZIP_NAME" > SHA256SUMS.txt
+            shasum -a 256 "$DMG_NAME" "$ZIP_NAME" "$PKG_NAME" > SHA256SUMS.txt
           )
 
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" \
               "$DIST_DIR/$DMG_NAME" \
               "$DIST_DIR/$ZIP_NAME" \
+              "$DIST_DIR/$PKG_NAME" \
               "$DIST_DIR/SHA256SUMS.txt" \
               --clobber
           else
             gh release create "$GITHUB_REF_NAME" \
               "$DIST_DIR/$DMG_NAME" \
               "$DIST_DIR/$ZIP_NAME" \
+              "$DIST_DIR/$PKG_NAME" \
               "$DIST_DIR/SHA256SUMS.txt" \
               --verify-tag \
               --title "GDW Vault $VERSION" \
@@ -152,4 +188,5 @@ jobs:
             security delete-keychain "$KEYCHAIN_PATH" 2>/dev/null || true
           fi
           rm -f "${CERTIFICATE_PATH:-$RUNNER_TEMP/developer-id.p12}"
+          rm -f "${INSTALLER_CERTIFICATE_PATH:-$RUNNER_TEMP/developer-id-installer.p12}"
           rm -f "$RUNNER_TEMP/AuthKey_${APPLE_API_KEY_ID:-}.p8"

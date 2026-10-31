@@ -11,9 +11,10 @@ BUILD_DIR="build"
 APP_DIR="$BUILD_DIR/$APP_NAME.app"
 MACOS_DIR="$APP_DIR/Contents/MacOS"
 RES_DIR="$APP_DIR/Contents/Resources"
+INSTALL_SUPPORT_DIR="$RES_DIR/InstallSupport"
 
 rm -rf "$APP_DIR"
-mkdir -p "$MACOS_DIR" "$RES_DIR"
+mkdir -p "$MACOS_DIR" "$RES_DIR" "$INSTALL_SUPPORT_DIR"
 
 echo "==> Compilando Swift…"
 BUILD_ARCHS="${GDW_BUILD_ARCHS:-$(uname -m)}"
@@ -68,6 +69,8 @@ rm -rf "$ICONSET_DIR"
 
 echo "==> Copiando icono de barra de menús…"
 cp assets/StatusIcon.png assets/StatusIcon@2x.png "$RES_DIR/"
+cp scripts/setup-launch-agent.sh scripts/uninstall-pkg.sh "$INSTALL_SUPPORT_DIR/"
+chmod 755 "$INSTALL_SUPPORT_DIR/setup-launch-agent.sh" "$INSTALL_SUPPORT_DIR/uninstall-pkg.sh"
 
 echo "==> Escribiendo Info.plist…"
 cat > "$APP_DIR/Contents/Info.plist" <<PLIST

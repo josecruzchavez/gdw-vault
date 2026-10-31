@@ -96,6 +96,25 @@ según el modo de cada conexión.
 Puedes descargar una versión ya compilada o compilarla desde el código fuente.
 Para compilar necesitas macOS 13 o posterior y Xcode Command Line Tools.
 
+### Instalación completa con Homebrew
+
+```bash
+brew install --cask josecruzchavez/gdw-vault/gdw-vault
+```
+
+En Homebrew 7, si la primera instalación se detiene porque el cask no es de
+confianza, ejecútalo una vez y repite el comando de instalación:
+
+```bash
+brew trust --cask josecruzchavez/gdw-vault/gdw-vault
+```
+
+El cask instala la app en `/Applications`, registra el LaunchAgent para el
+autoinicio y el servicio XPC, y enlaza el comando `gdw-vault` en el directorio
+`bin` de Homebrew. Al desinstalarlo con `brew uninstall --cask gdw-vault`, se
+retiran esos componentes, pero se conservan la base de datos y las credenciales
+del Llavero.
+
 ### Instalación desde una release
 
 Descarga la versión más reciente desde [GitHub Releases](https://github.com/josecruzchavez/gdw-vault/releases/latest).
@@ -107,15 +126,10 @@ repositorio ni compilar el código.
 
 También se publican un `.zip` y `SHA256SUMS.txt` para verificar los archivos.
 
-También puedes instalar la app con Homebrew:
-
-```bash
-brew install --cask josecruzchavez/gdw-vault/gdw-vault
-```
-
-La descarga directa instala la app, pero no configura el LaunchAgent de
-autoinicio ni el wrapper CLI. Para registrar el servicio XPC requerido por MCP
-y configurar esos componentes, sigue el flujo desde el código fuente.
+El `.dmg` y el `.zip` instalan la app, pero no registran el LaunchAgent ni el
+comando CLI. Usa Homebrew para automatizar esa configuración. El `.pkg`
+independiente se incluirá en el release después de completar la firma con
+Developer ID Installer.
 
 ### Instalar desde el código fuente
 
@@ -170,6 +184,13 @@ base, la app lo migra sola al arrancar (anotado en el historial de versiones).
 
 ```bash
 ./install.sh uninstall
+```
+
+Si instalaste con Homebrew, ejecuta `brew uninstall --cask gdw-vault`. Para una
+instalación desde `.pkg`, ejecuta:
+
+```bash
+sudo "/Applications/GDW Vault.app/Contents/Resources/InstallSupport/uninstall-pkg.sh"
 ```
 
 Detiene el proceso y el LaunchAgent, borra `/Applications/GDW Vault.app`

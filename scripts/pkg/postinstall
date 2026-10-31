@@ -1,0 +1,18 @@
+#!/bin/bash
+set -euo pipefail
+
+APP_EXECUTABLE="/Applications/GDW Vault.app/Contents/MacOS/GDW Vault"
+LAUNCH_AGENT_HELPER="/Applications/GDW Vault.app/Contents/Resources/InstallSupport/setup-launch-agent.sh"
+CLI_PATH="/usr/local/bin/gdw-vault"
+
+if [[ ! -x "$APP_EXECUTABLE" || ! -x "$LAUNCH_AGENT_HELPER" ]]; then
+    echo "La instalación no contiene los archivos requeridos de GDW Vault." >&2
+    exit 1
+fi
+
+/bin/mkdir -p /usr/local/bin
+if [[ ! -L "$CLI_PATH" ]]; then
+    /bin/ln -s "$APP_EXECUTABLE" "$CLI_PATH"
+fi
+
+"$LAUNCH_AGENT_HELPER" install
