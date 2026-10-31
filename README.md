@@ -14,7 +14,8 @@ necesarias a ese destino.
 
 Versión: [VERSION](./VERSION) · CLI: `gdw-vault version` ·
 Cambios: [CHANGELOG.md](./CHANGELOG.md) · Sitio: [vault.gdw.mx](https://vault.gdw.mx).
-Guía de releases: [RELEASING.md](./RELEASING.md).
+Guía de releases: [RELEASING.md](./RELEASING.md) ·
+[Aviso de uso y seguridad](./TERMS.md).
 
 ## Índice
 
@@ -24,6 +25,7 @@ Guía de releases: [RELEASING.md](./RELEASING.md).
 - [Instalación, actualización y desinstalación](#instalación-actualización-y-desinstalación)
 - [Uso](#uso)
 - [Integración MCP](#integración-mcp)
+- [Aviso de uso y seguridad](#aviso-de-uso-y-seguridad)
 - [Seguridad y datos](#seguridad-y-datos)
 - [Importar desde FileZilla](#importar-desde-filezilla)
 - [Ubicación de los datos](#dónde-se-guardan-los-datos)
@@ -239,8 +241,17 @@ Herramientas disponibles:
 | `list_keys` | No (llaves SSH: nombre y rutas, sin contenido) |
 | `db_query` | Lectura: ventana de gracia 15 min · Escritura: **siempre huella fresca** |
 | `ssh_exec` | Ídem |
-| `run_with_secret` | Ídem — inyecta el secreto en un CLI local sin revelarlo |
+| `run_with_secret` | Ídem — inyecta el secreto; MCP devuelve solo el código de salida |
 | `http_request` | Ídem — HTTP con sesión y autenticación de la conexión |
+
+**Aviso de privacidad:** `get_connection_password` devuelve intencionalmente el
+password en la respuesta MCP tras Touch ID, si el usuario elige «Proceder
+(mostrar en el chat)». Asimismo, `get_connection_command(include_password=true)`
+muestra un aviso con opciones para copiar, proceder o cancelar; solo «Proceder»
+incluye el password en el comando MCP para MySQL/Postgres. Al elegir copiar, el
+comando se devuelve sin password y el secreto va al portapapeles. La opción de
+proceder puede exponerlo al cliente MCP/modelo; no la elijas si necesitas que el
+secreto permanezca fuera del chat.
 
 Campos por protocolo en create/update:
 
@@ -255,6 +266,24 @@ Autenticación por llave en ssh/sftp: pasa `auth: "key"` y `key_name`
 (nombre de una llave de `list_keys`); `auth: "password"` (default) la quita.
 
 ## Seguridad y datos
+
+### Aviso de uso y seguridad
+
+En el primer inicio de la app o de un proceso MCP, GDW Vault muestra un aviso y
+requiere aceptación explícita antes de continuar. El aviso también está
+disponible en el menú de la barra de estado como **Seguridad y uso…**. La
+aceptación se guarda en las preferencias locales del usuario para esta versión
+del aviso.
+
+Los clientes MCP pueden invocar herramientas y transmitir al chat/modelo los
+datos que estas devuelvan. Algunas acciones permiten entregar secretos
+explícitamente. Usa solo conexiones autorizadas, revisa las solicitudes y
+protege los secretos y los sistemas remotos.
+
+La aceptación informa al usuario de los riesgos; **no garantiza por sí sola
+eximir al desarrollador de responsabilidad ni reemplaza asesoría legal**. Lee
+[TERMS.md](./TERMS.md) y consulta asesoría legal antes de distribuir la
+aplicación o establecer términos vinculantes en cualquier jurisdicción.
 
 SQLite guarda metadatos de conexión y no usa cifrado a nivel de aplicación.
 macOS limita el acceso a los archivos mediante los permisos de la cuenta; otros
@@ -281,6 +310,11 @@ Touch ID fresco.
   `application*.yml`/`application*.yaml`, `appsettings*.json`.
 - Ghost: `config.production.json`, `config.staging.json` y
   `config.development.json`.
+- Llaves privadas SSH: `id_rsa`, `id_ecdsa`, `id_ed25519`, `id_dsa`,
+  `ssh_host_*_key` y archivos `.pem`, `.key`, `.p12`, `.pfx` o `.ppk`.
+
+El contenido de llaves privadas se bloquea siempre y no se devuelve al chat,
+incluso si está habilitada la lectura de otros archivos sensibles.
 
 Para permitir una excepción, edita la conexión en la app de barra y activa
 **Permitir lectura de archivos sensibles**. Cada llamada todavía requiere
@@ -296,9 +330,11 @@ con permisos Unix mínimos o una cuenta SFTP restringida en el servidor.
 
 ### Entrega de secretos a CLIs (`run_with_secret`)
 
-El chat nunca necesita ver el password: `run_with_secret` se lo entrega a un
-proceso local (variable de entorno o stdin) y redacta cualquier aparición del
-valor en la salida.
+`run_with_secret` entrega el secreto a un proceso local (variable de entorno o
+stdin). En llamadas MCP, stdout y stderr se descartan y solo se devuelve el
+código de salida, porque una redacción literal no puede detectar todas las
+transformaciones posibles del secreto. La CLI local `gdw-vault exec` sí muestra
+la salida en la terminal del operador.
 
 ```
 run_with_secret(name="Producción", command="pg_dump -h $PGHOST -U app mi_db")
@@ -307,7 +343,8 @@ run_with_secret(name="API Stripe",  command="curl -s -H 'X-Key: '$GDW_SECRET ...
 
 - `env_var` (default `GDW_SECRET`) elige el nombre de la variable; `stdin=true`
   lo inyecta por entrada estándar (para clientes que lo piden así).
-- El valor **no** viaja en los argumentos del comando ni en la respuesta.
+- El valor **no** viaja en los argumentos ni stdout/stderr del proceso MCP se
+  incorporan a la respuesta.
 - Si la conexión usa llave SSH, se inyecta la **ruta** de la llave privada.
 - Aplica la misma política de modos que `ssh_exec` (lectura → solo comandos de
   lectura; `info` bloquea y muestra el comando de consola; `edición`/`unsafe`
@@ -328,13 +365,16 @@ http_request(name="Panel", method="POST", path="/api/v1/items",
 
 - `auth_type`: `none`, `basic` (usuario + password), `bearer`, `header`
   (`header_name`) o `query` (`query_param`).
-- `path` es relativa a la URL de la conexión; `url` acepta una URL absoluta.
+- `path` es relativa a la URL de la conexión; `url` acepta una URL absoluta
+  del mismo origen. Las peticiones con credenciales requieren HTTPS y las
+  redirecciones a otros orígenes no se siguen.
 - `follow_redirects`, `query`, `headers`, `clear_cookies` y `timeout` opcionales.
 - Política por modo: `lectura` solo GET/HEAD/OPTIONS; `info` bloquea escritura
   y muestra el `curl` equivalente; `edición` permite POST/PUT/PATCH con
   `confirm=true`; `unsafe` permite todo; `DELETE` solo en `unsafe`.
 - La respuesta trae `status`, cabeceras relevantes, cuerpo recortado a 20 KB y
-  el número de cookies de sesión. El token y su forma base64 se redactan.
+  el número de cookies de sesión. Se omiten query, fragmento y userinfo de las
+  URL devueltas; el token y su forma base64 se redactan en el cuerpo.
 - Las cookies viven **en memoria** del servidor MCP: al reiniciar VS Code la
   sesión se pierde (vuelve a autenticarte con la primera petición).
 

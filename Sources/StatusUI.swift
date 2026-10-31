@@ -89,6 +89,9 @@ final class StatusUI: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         menu.addItem(.separator())
+        let usage = NSMenuItem(title: "Seguridad y uso…", action: #selector(showUsageNotice), keyEquivalent: "")
+        usage.target = self
+        menu.addItem(usage)
         let about = NSMenuItem(title: "Acerca de", action: #selector(showAbout), keyEquivalent: "")
         about.target = self
         menu.addItem(about)
@@ -386,6 +389,8 @@ final class StatusUI: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         Los datos se guardan en esta Mac. La sincronización con iCloud está desactivada.
 
+        Revisa «Seguridad y uso…» para conocer los límites y responsabilidades al conectar clientes MCP.
+
         Desarrollado por GDW · José Cruz Chávez
         """
         alert.alertStyle = .informational
@@ -408,6 +413,10 @@ final class StatusUI: NSObject, NSApplicationDelegate, NSMenuDelegate {
         alert.accessoryView = linksView
         alert.addButton(withTitle: "Cerrar")
         alert.runModal()
+    }
+
+    @objc private func showUsageNotice() {
+        UsageNotice.presentForReview()
     }
 
     @objc private func openAboutLinkButton(_ sender: NSButton) {

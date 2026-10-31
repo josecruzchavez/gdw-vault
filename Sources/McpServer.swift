@@ -127,7 +127,7 @@ final class McpServer {
             ],
             [
                 "name": "get_connection_password",
-                "description": "Devuelve el secreto de una conexión. Pide Touch ID local antes de entregarlo.",
+                "description": "Devuelve el secreto en la respuesta MCP, que puede llegar al chat/modelo. Pide Touch ID local antes de entregarlo.",
                 "inputSchema": [
                     "type": "object",
                     "required": ["name"],
@@ -232,20 +232,20 @@ final class McpServer {
             ],
             [
                 "name": "get_connection_command",
-                "description": "Devuelve el comando de terminal para conectarse (ssh/mysql/psql/ftp/url) según el protocolo de la conexión (coincidencia parcial en el nombre). Para autenticación por llave SSH, incluye -i con la ruta registrada, nunca el contenido de la llave. Por defecto no incluye passwords. 'copy_password'=true copia al portapapeles con Touch ID (solo conexiones con password). 'include_password'=true lo incrusta cuando el cliente lo permite — mysql/postgres sí; ssh/ftp no aceptan password en el comando.",
+                "description": "Devuelve el comando de terminal para conectarse (ssh/mysql/psql/ftp/url) según el protocolo de la conexión (coincidencia parcial en el nombre). Para autenticación por llave SSH, incluye -i con la ruta registrada, nunca el contenido de la llave. Por defecto no incluye passwords. 'copy_password'=true copia al portapapeles con Touch ID (solo conexiones con password). 'include_password'=true muestra un aviso con opciones de copiar, proceder o cancelar; solo al proceder lo incrusta en el comando devuelto para mysql/postgres. El password podría llegar al chat/modelo.",
                 "inputSchema": [
                     "type": "object",
                     "required": ["name"],
                     "properties": [
                         "name": ["type": "string", "description": "Nombre de la conexión (coincidencia parcial aceptada)"],
                         "copy_password": ["type": "boolean", "description": "Copia el password al portapapeles con Touch ID; solo aplica a conexiones con password"],
-                        "include_password": ["type": "boolean", "description": "Incrusta el password en el comando (solo mysql/postgres; queda en historial de terminal)"],
+                         "include_password": ["type": "boolean", "description": "Solicita generar el comando con password (solo mysql/postgres); la app muestra un aviso para copiarlo, proceder y enviarlo en la respuesta MCP, o cancelar"],
                     ],
                 ],
             ],
             [
                 "name": "run_with_secret",
-                "description": "Ejecuta un comando LOCAL entregando el secreto de una conexión al proceso (variable de entorno o stdin), sin revelarlo al chat: el valor nunca va en los argumentos y se redacta de la salida. Sirve para cualquier CLI que acepte credencial por env/stdin (curl, psql, mysql, pg_dump, aws, gh, docker login, npm, kubectl…). POLÍTICA POR CONEXIÓN (campo 'Modo'): lectura solo comandos de lectura; info bloquea y muestra el comando de consola; edicion permite moderados con confirm=true; unsafe permite todo con confirm=true. TOUCH ID: lectura con ventana de gracia; escritura siempre fresco. Si la conexión usa llave SSH, se inyecta la RUTA de la llave privada.",
+                "description": "Ejecuta un comando LOCAL entregando el secreto de una conexión al proceso (variable de entorno o stdin). Por MCP, stdout y stderr se descartan y solo se devuelve el código de salida; el secreto nunca va en los argumentos. Sirve para CLIs que acepten credencial por env/stdin. POLÍTICA POR CONEXIÓN (campo 'Modo'): lectura solo comandos de lectura; info bloquea y muestra el comando de consola; edicion permite moderados con confirm=true; unsafe permite todo con confirm=true. TOUCH ID: lectura con ventana de gracia; escritura siempre fresco. Si la conexión usa llave SSH, se inyecta la RUTA de la llave privada.",
                 "inputSchema": [
                     "type": "object",
                     "required": ["name", "command"],
@@ -261,7 +261,7 @@ final class McpServer {
             ],
             [
                 "name": "http_request",
-                "description": "Petición HTTP con sesión (cookie jar en memoria) usando una conexión website/api del vault. La URL base y la autenticación salen de la conexión: 'basic' usa usuario + password/token guardado, 'bearer' y 'header' usan el token guardado, 'query' lo agrega como parámetro. El token nunca se revela. POLÍTICA POR CONEXIÓN (campo 'Modo'): lectura solo GET/HEAD/OPTIONS; info bloquea escritura y muestra el curl equivalente; edicion permite POST/PUT/PATCH con confirm=true; unsafe permite todo con confirm=true; DELETE solo en unsafe. TOUCH ID: lectura con ventana de gracia; escritura siempre fresco. Devuelve status, cabeceras relevantes y cuerpo (recortado a 20k).",
+                "description": "Petición HTTP con sesión (cookie jar en memoria) usando una conexión website/api del vault. La URL base y la autenticación salen de la conexión. Las URL absolutas deben conservar el origen configurado; peticiones con credenciales requieren HTTPS y las redirecciones a otros orígenes se bloquean. La URL y la cabecera Location devueltas omiten query, fragmento y userinfo para no exponer tokens. POLÍTICA POR CONEXIÓN (campo 'Modo'): lectura solo GET/HEAD/OPTIONS; info bloquea escritura y muestra el curl equivalente; edicion permite POST/PUT/PATCH con confirm=true; unsafe permite todo con confirm=true; DELETE solo en unsafe. TOUCH ID: lectura con ventana de gracia; escritura siempre fresco. Devuelve status, cabeceras relevantes y cuerpo (recortado a 20k).",
                 "inputSchema": [
                     "type": "object",
                     "required": ["name"],
@@ -269,7 +269,7 @@ final class McpServer {
                         "name": ["type": "string", "description": "Conexión website/api (coincidencia parcial aceptada)"],
                         "method": ["type": "string", "description": "GET, HEAD, OPTIONS, POST, PUT, PATCH o DELETE (default GET)"],
                         "path": ["type": "string", "description": "Ruta relativa a la URL de la conexión (p.ej. /api/v1/items)"],
-                        "url": ["type": "string", "description": "URL absoluta; reemplaza a 'path'"],
+                        "url": ["type": "string", "description": "URL absoluta del mismo origen configurado; reemplaza a 'path'"],
                         "headers": ["type": "object", "description": "Cabeceras adicionales (objeto nombre→valor)"],
                         "body": ["type": "string", "description": "Cuerpo como texto"],
                         "body_json": ["type": "object", "description": "Cuerpo JSON (tiene prioridad sobre 'body')"],
@@ -412,7 +412,10 @@ final class McpServer {
         case cancel
     }
 
-    private func promptPasswordDelivery(name: String) -> PasswordDelivery {
+    private func promptPasswordDelivery(
+        name: String,
+        context: String = "Un cliente (p. ej. el chat) ha pedido este password."
+    ) -> PasswordDelivery {
         // El handler del source corre en el hilo principal (queue: .main),
         // así que NSAlert puede instanciarse aquí directamente.
         let app = NSApplication.shared
@@ -422,7 +425,7 @@ final class McpServer {
         let alert = NSAlert()
         alert.messageText = "Password solicitado — \(name)"
         alert.informativeText = """
-        Un cliente (p. ej. el chat) ha pedido este password.
+        \(context)
 
         ⚠️ Si se muestra en el chat queda comprometido: queda en el historial, \
         los logs y el contexto del modelo.
@@ -791,12 +794,31 @@ final class McpServer {
                 return
             }
             if wantsInline {
-                if let withPass = ConnectionCommandBuilder.build(conn, password: secret) {
-                    command = withPass
-                    sugerencia = "⚠️ El comando incluye el password: quedará en el historial de la terminal. Considera 'copy_password'=true para pegarlo solo cuando la terminal lo pida."
-                } else {
+                guard let withPass = ConnectionCommandBuilder.build(conn, password: secret) else {
                     ok = false
                     sugerencia = "Este protocolo no acepta password en el comando (ssh/ftp). Usa 'copy_password'=true para copiarlo al portapapeles y pégalo cuando la terminal lo pida."
+                    result(id, ["content": textContent(jsonString([
+                        "ok": ok,
+                        "command": command ?? "(sin comando para este protocolo)",
+                        "sugerencia": sugerencia,
+                        "auth": AuthSession.shared.statsDescription(),
+                    ]))])
+                    return
+                }
+                switch promptPasswordDelivery(
+                    name: connName,
+                    context: "El asistente pidió generar un comando con este password incluido."
+                ) {
+                case .cancel:
+                    fail(id, "Generación del comando con password cancelada por el usuario")
+                    return
+                case .copy:
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(secret, forType: .string)
+                    sugerencia = "📋 Password copiado al portapapeles; el comando devuelto no lo incluye. Pégalo cuando la terminal lo solicite. Se borrará cuando copies otra cosa."
+                case .reveal:
+                    command = withPass
+                    sugerencia = "⚠️ El comando incluye el password en la respuesta MCP: puede quedar en el historial del chat y de la terminal."
                 }
             } else {
                 NSPasteboard.general.clearContents()

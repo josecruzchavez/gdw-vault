@@ -1,8 +1,8 @@
 import Foundation
 
 /// Entrega el secreto de una conexión a un proceso local (CLI) sin que el
-/// valor pase por el chat: viaja por variable de entorno o stdin, se redacta
-/// de la salida y nunca aparece en los argumentos del comando.
+/// valor pase por el chat: viaja por variable de entorno o stdin y nunca
+/// aparece en los argumentos del comando. MCP descarta stdout y stderr.
 ///
 /// Política de modos idéntica a ssh_exec/db_query (`details.mode`):
 ///   lectura → solo comandos de lectura; resto bloqueado.
@@ -44,6 +44,11 @@ final class SecretBroker {
         let mode = modeRaw == "safe" ? "lectura" : modeRaw
         let tier = SshRunner.classify(command)
         let protocolType = conn["protocol"] as? String ?? ""
+        if let privateKeyFile = SensitiveFilePolicy.matchedPrivateKeyName(in: command) {
+            return Result(
+                ok: false,
+                message: "🔒 Acceso bloqueado: el contenido de llaves privadas nunca se devuelve al chat ('\(privateKeyFile)').")
+        }
         let sensitiveFile = ["ssh", "sftp"].contains(protocolType)
             ? SensitiveFilePolicy.matchedName(in: command) : nil
         let console = Self.consoleCommand(name: connName, command: command, envVar: envVar ?? Self.defaultEnvVar)
@@ -158,23 +163,33 @@ final class SecretBroker {
         }
 
         let limit = max(5, min(300, timeout))
-        let outFile = FileManager.default.temporaryDirectory
-            .appendingPathComponent("gdw-exec-\(UUID().uuidString).log")
-        FileManager.default.createFile(atPath: outFile.path, contents: nil,
-                                       attributes: [.posixPermissions: 0o600])
-        guard let handle = try? FileHandle(forWritingTo: outFile) else {
-            return Result(ok: false, message: "No se pudo preparar el archivo de salida")
+        let outputFile: URL?
+        let outputHandle: FileHandle?
+        if operatorOverride {
+            let file = FileManager.default.temporaryDirectory
+                .appendingPathComponent("gdw-exec-\(UUID().uuidString).log")
+            FileManager.default.createFile(
+                atPath: file.path, contents: nil,
+                attributes: [.posixPermissions: 0o600])
+            guard let handle = try? FileHandle(forWritingTo: file) else {
+                return Result(ok: false, message: "No se pudo preparar el archivo de salida")
+            }
+            outputFile = file
+            outputHandle = handle
+        } else {
+            outputFile = nil
+            outputHandle = nil
         }
         defer {
-            try? handle.close()
-            try? FileManager.default.removeItem(at: outFile)
+            try? outputHandle?.close()
+            if let outputFile { try? FileManager.default.removeItem(at: outputFile) }
         }
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/zsh")
         process.arguments = ["-c", command]
-        process.standardOutput = handle
-        process.standardError = handle
+        process.standardOutput = outputHandle ?? FileHandle.nullDevice
+        process.standardError = outputHandle ?? FileHandle.nullDevice
 
         var stdinPipe: Pipe?
         if viaStdin {
@@ -215,10 +230,16 @@ final class SecretBroker {
         }
         process.waitUntilExit()
 
-        let raw = (try? String(contentsOf: outFile, encoding: .utf8)) ?? ""
+        let status = process.terminationStatus
+        guard operatorOverride else {
+            return Result(
+                ok: status == 0,
+                message: "Comando terminado con código \(status). La salida se omitió porque el proceso tuvo acceso al secreto.")
+        }
+
+        let raw = outputFile.flatMap { try? String(contentsOf: $0, encoding: .utf8) } ?? ""
         let clean = OutputText.truncate(OutputText.redact(raw, secrets: secretsToRedact))
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        let status = process.terminationStatus
         if status != 0 {
             return Result(ok: false, message: "El comando terminó con código \(status):\n\(clean)")
         }

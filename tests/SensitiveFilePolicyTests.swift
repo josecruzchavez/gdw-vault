@@ -30,9 +30,24 @@ struct SensitiveFilePolicyTests {
             precondition(SensitiveFilePolicy.matchedName(in: command) == expected, command)
         }
 
+        let privateKeyCommands: [(String, String)] = [
+            ("cat /home/deploy/.ssh/id_rsa", "id_rsa"),
+            ("cat ~/.ssh/id_ed25519", "id_ed25519"),
+            ("cat '~/.ssh/id_ecdsa_sk'", "id_ecdsa_sk"),
+            ("cat /etc/ssh/ssh_host_ed25519_key", "ssh_host_ed25519_key"),
+            ("cat /tmp/deploy.pem", "deploy.pem"),
+            ("cat /tmp/server.key", "server.key"),
+            ("cat /tmp/client.p12", "client.p12"),
+        ]
+        for (command, expected) in privateKeyCommands {
+            precondition(SensitiveFilePolicy.matchedPrivateKeyName(in: command) == expected, command)
+        }
+
         precondition(SensitiveFilePolicy.matchedName(in: "ls -la /var/www") == nil)
         precondition(SensitiveFilePolicy.matchedName(in: "cat .environment") == nil)
         precondition(SensitiveFilePolicy.matchedName(in: "cat generic/config.php") == nil)
+        precondition(SensitiveFilePolicy.matchedPrivateKeyName(in: "cat ~/.ssh/id_ed25519.pub") == nil)
+        precondition(SensitiveFilePolicy.matchedPrivateKeyName(in: "cat ~/.ssh/authorized_keys") == nil)
         precondition(!SensitiveFilePolicy.isEnabled(in: [:]))
         precondition(SensitiveFilePolicy.isEnabled(in: [
             SensitiveFilePolicy.connectionSetting: "true"

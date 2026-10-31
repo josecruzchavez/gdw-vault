@@ -52,6 +52,8 @@ final class HttpClient {
         let base = details["url"] ?? ""
         let modeRaw = (details["mode"] ?? "lectura").lowercased()
         let mode = modeRaw == "safe" ? "lectura" : modeRaw
+        let usernameForAuth = conn["username"] as? String ?? ""
+        let authType = (details["auth"] ?? (usernameForAuth.isEmpty ? "none" : "basic")).lowercased()
 
         let verb = method.uppercased()
         guard !verb.isEmpty, verb.allSatisfy({ $0.isLetter }) else {
@@ -118,10 +120,21 @@ final class HttpClient {
               scheme == "http" || scheme == "https" else {
             return Result(ok: false, message: "URL inválida: '\(target)' (solo http/https)", status: nil)
         }
+        guard let targetComponents = URLComponents(url: finalURL, resolvingAgainstBaseURL: false),
+              targetComponents.user == nil, targetComponents.password == nil else {
+            return Result(ok: false, message: "La URL no puede incluir usuario ni password.", status: nil)
+        }
+        if authType != "none" {
+            guard let configuredURL = URL(string: base),
+                  Self.hasSameOrigin(finalURL, as: configuredURL) else {
+                return Result(ok: false, message: "La URL debe conservar el origen configurado en la conexión para usar sus credenciales.", status: nil)
+            }
+            guard scheme == "https" else {
+                return Result(ok: false, message: "Las conexiones con credenciales requieren HTTPS.", status: nil)
+            }
+        }
 
         // --- Autenticación --------------------------------------------
-        let usernameForAuth = conn["username"] as? String ?? ""
-        let authType = (details["auth"] ?? (usernameForAuth.isEmpty ? "none" : "basic")).lowercased()
         var secret: String?
         var secretsToRedact: [String] = []
         if authType != "none" {
@@ -129,6 +142,11 @@ final class HttpClient {
                let stored = KeychainStore.shared.getSecret(account: account), !stored.isEmpty {
                 secret = stored
                 secretsToRedact.append(stored)
+                if authType == "query",
+                   let encoded = Self.percentEncodedQueryValue(stored),
+                   encoded != stored {
+                    secretsToRedact.append(encoded)
+                }
             } else {
                 return Result(ok: false, message: "La conexión '\(connName)' usa auth '\(authType)' pero no tiene token/password guardado.", status: nil)
             }
@@ -202,7 +220,8 @@ final class HttpClient {
         if clearCookies {
             Self.jarQueue.sync { Self.cookieJars[connId] = [:] }
         }
-        let cookies = Self.jarQueue.sync { Self.cookieJars[connId] ?? [:] }
+        let canUseCookieJar = URL(string: base).map { Self.hasSameOrigin(finalURL, as: $0) } ?? false
+        let cookies = canUseCookieJar ? Self.jarQueue.sync { Self.cookieJars[connId] ?? [:] } : [:]
         if !cookies.isEmpty,
            allHeaders.keys.first(where: { $0.lowercased() == "cookie" }) == nil {
             allHeaders["Cookie"] = cookies.map { "\($0.key)=\($0.value)" }.joined(separator: "; ")
@@ -215,7 +234,7 @@ final class HttpClient {
         configuration.httpCookieAcceptPolicy = .never
         configuration.timeoutIntervalForRequest = request.timeoutInterval
         configuration.timeoutIntervalForResource = request.timeoutInterval + 10
-        let delegate = RedirectController(follow: followRedirects)
+        let delegate = RedirectController(follow: followRedirects, origin: finalURL)
         let session = URLSession(configuration: configuration, delegate: delegate, delegateQueue: nil)
         defer { session.finishTasksAndInvalidate() }
 
@@ -235,14 +254,22 @@ final class HttpClient {
             return Result(ok: false, message: "La petición excedió el timeout de \(Int(request.timeoutInterval))s", status: nil)
         }
         if let failure {
-            return Result(ok: false, message: "Error de red: \(failure.localizedDescription)", status: nil)
+            let networkError = failure as NSError
+            return Result(
+                ok: false,
+                message: "Error de red (\(networkError.domain), código \(networkError.code)); se omitieron detalles de la URL.",
+                status: nil)
         }
         guard let response else {
             return Result(ok: false, message: "Sin respuesta HTTP", status: nil)
         }
 
         // --- Cookies nuevas --------------------------------------------
-        if let setCookie = response.value(forHTTPHeaderField: "Set-Cookie"), !setCookie.isEmpty {
+        let responseIsSameOrigin = URL(string: base).map { configuredURL in
+            response.url.map { Self.hasSameOrigin($0, as: configuredURL) } ?? false
+        } ?? false
+        if responseIsSameOrigin,
+           let setCookie = response.value(forHTTPHeaderField: "Set-Cookie"), !setCookie.isEmpty {
             let parsed = Self.parseSetCookie(setCookie)
             if !parsed.isEmpty {
                 Self.jarQueue.sync {
@@ -257,16 +284,19 @@ final class HttpClient {
         let rawBody = responseData.flatMap { String(data: $0, encoding: .utf8) }
             ?? responseData.map { "(cuerpo binario: \($0.count) bytes)" }
             ?? ""
-        var text = OutputText.redact(OutputText.truncate(rawBody, limit: Self.maxBody),
-                                     secrets: secretsToRedact)
-        if !followRedirects, (300...399).contains(response.statusCode) {
-            text += "\n\n(redirección no seguida; usa follow_redirects=true para seguirla)"
+        var text = OutputText.truncate(
+            OutputText.redact(rawBody, secrets: secretsToRedact),
+            limit: Self.maxBody)
+        if (300...399).contains(response.statusCode) {
+            text += followRedirects
+                ? "\n\n(redirección no seguida: solo se siguen redirecciones dentro del mismo origen)"
+                : "\n\n(redirección no seguida; usa follow_redirects=true para seguirla)"
         }
 
         var info: [String: Any] = [
             "ok": (200...399).contains(response.statusCode),
             "status": response.statusCode,
-            "url": response.url?.absoluteString ?? target,
+            "url": response.url.map(Self.sanitizedURL) ?? Self.sanitizedURL(finalURL),
             "method": verb,
             "body": text,
             "auth": AuthSession.shared.statsDescription(),
@@ -275,7 +305,12 @@ final class HttpClient {
         var responseHeaders: [String: String] = [:]
         for (key, value) in response.allHeaderFields {
             let name = (key as? String ?? "").lowercased()
-            if interesting.contains(name) { responseHeaders[name] = "\(value)" }
+            if interesting.contains(name) {
+                let value = "\(value)"
+                responseHeaders[name] = name == "location"
+                    ? Self.sanitizedLocation(value)
+                    : OutputText.redact(value, secrets: secretsToRedact)
+            }
         }
         if !responseHeaders.isEmpty { info["headers"] = responseHeaders }
         let jarCount = Self.jarQueue.sync { Self.cookieJars[connId]?.count ?? 0 }
@@ -289,6 +324,53 @@ final class HttpClient {
     }
 
     // MARK: - Helpers
+
+    static func hasSameOrigin(_ first: URL, as second: URL) -> Bool {
+        guard let firstComponents = URLComponents(url: first, resolvingAgainstBaseURL: false),
+              let secondComponents = URLComponents(url: second, resolvingAgainstBaseURL: false),
+              let firstScheme = firstComponents.scheme?.lowercased(),
+              let secondScheme = secondComponents.scheme?.lowercased(),
+              let firstHost = firstComponents.host?.lowercased(),
+              let secondHost = secondComponents.host?.lowercased() else { return false }
+
+        func effectivePort(_ components: URLComponents, scheme: String) -> Int? {
+            components.port ?? (scheme == "https" ? 443 : (scheme == "http" ? 80 : nil))
+        }
+
+        return firstScheme == secondScheme
+            && firstHost == secondHost
+            && effectivePort(firstComponents, scheme: firstScheme)
+                == effectivePort(secondComponents, scheme: secondScheme)
+    }
+
+    static func sanitizedURL(_ url: URL) -> String {
+        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            return "\(url.scheme ?? "")://\(url.host ?? "")"
+        }
+        components.user = nil
+        components.password = nil
+        components.query = nil
+        components.fragment = nil
+        return components.string ?? "\(url.scheme ?? "")://\(url.host ?? "")"
+    }
+
+    private static func percentEncodedQueryValue(_ value: String) -> String? {
+        var components = URLComponents()
+        components.queryItems = [URLQueryItem(name: "secret", value: value)]
+        return components.percentEncodedQuery?
+            .split(separator: "=", maxSplits: 1)
+            .last
+            .map(String.init)
+    }
+
+    private static func sanitizedLocation(_ value: String) -> String {
+        guard var components = URLComponents(string: value) else { return value }
+        components.user = nil
+        components.password = nil
+        components.query = nil
+        components.fragment = nil
+        return components.string ?? "(URL de redirección omitida)"
+    }
 
     private func join(base: String, path: String) -> String {
         if path.lowercased().hasPrefix("http://") || path.lowercased().hasPrefix("https://") {
@@ -357,15 +439,22 @@ final class HttpClient {
 /// Controla si se siguen redirecciones 3xx.
 private final class RedirectController: NSObject, URLSessionTaskDelegate {
     private let follow: Bool
+    private let origin: URL
 
-    init(follow: Bool) {
+    init(follow: Bool, origin: URL) {
         self.follow = follow
+        self.origin = origin
     }
 
     func urlSession(_ session: URLSession, task: URLSessionTask,
                     willPerformHTTPRedirection response: HTTPURLResponse,
                     newRequest request: URLRequest,
                     completionHandler: @escaping (URLRequest?) -> Void) {
-        completionHandler(follow ? request : nil)
+        guard follow, let redirectURL = request.url,
+              HttpClient.hasSameOrigin(redirectURL, as: origin) else {
+            completionHandler(nil)
+            return
+        }
+        completionHandler(request)
     }
 }

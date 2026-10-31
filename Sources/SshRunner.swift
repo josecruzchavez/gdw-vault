@@ -39,6 +39,11 @@ final class SshRunner {
         let modeRaw = (details["mode"] ?? "lectura").lowercased()
         let mode = modeRaw == "safe" ? "lectura" : modeRaw
         let tier = Self.classify(command)
+        if let privateKeyFile = SensitiveFilePolicy.matchedPrivateKeyName(in: command) {
+            return Result(
+                ok: false,
+                message: "🔒 Acceso bloqueado: el contenido de llaves privadas nunca se devuelve al chat ('\(privateKeyFile)').")
+        }
         let sensitiveFile = SensitiveFilePolicy.matchedName(in: command)
         if let sensitiveFile {
             guard SensitiveFilePolicy.isEnabled(in: details) else {

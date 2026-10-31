@@ -7,6 +7,7 @@ struct VaultMain {
 
         // Modo servidor MCP para VS Code: gdw-vault --mcp
         if args.contains("--mcp") {
+            guard UsageNotice.requireAcceptance() else { return }
             setvbuf(stdout, nil, _IOLBF, 0)
             McpServer().run()
             return
@@ -121,6 +122,7 @@ struct VaultMain {
             NSLog("GDW Vault ya tiene una instancia de barra de estado activa")
             return
         }
+        guard UsageNotice.requireAcceptance() else { return }
         let app = NSApplication.shared
         let delegate = StatusUI()
         app.delegate = delegate
