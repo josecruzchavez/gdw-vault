@@ -126,10 +126,10 @@ repositorio ni compilar el código.
 
 También se publican un `.zip` y `SHA256SUMS.txt` para verificar los archivos.
 
-El `.dmg` y el `.zip` instalan la app, pero no registran el LaunchAgent ni el
-comando CLI. Usa Homebrew para automatizar esa configuración. El `.pkg`
-independiente se incluirá en el release después de completar la firma con
-Developer ID Installer.
+El `.pkg` firmado y notarizado ofrece una instalación automatizada: instala la
+app, registra el LaunchAgent y agrega el comando `gdw-vault`. El `.dmg` y el
+`.zip` solo instalan la app; usa Homebrew o el `.pkg` para automatizar la
+configuración del servicio y la CLI.
 
 ### Instalar desde el código fuente
 
