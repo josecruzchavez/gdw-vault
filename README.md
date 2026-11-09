@@ -20,6 +20,7 @@ necesarias a ese destino.
 - **Otras descargas y versiones:** [GitHub Releases](https://github.com/josecruzchavez/gdw-vault/releases/latest)
 - **Homebrew:** [tap de GDW Vault](https://github.com/josecruzchavez/homebrew-gdw-vault)
 - **Extensión para VS Code / GitHub Copilot (solo macOS):** [GDW Vault MCP en Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=JosCruzChvez.gdw-vault-mcp)
+- **Plugin para Claude Code (solo macOS):** instrucciones de [instalación desde el marketplace](#claude-code).
 - **Código fuente (opcional):** [guía para compilar e instalar](./DEVELOPMENT.md)
 - **Guía práctica MCP:** [instalar, configurar y conectar SSH, MySQL, Magento, WordPress y Joomla](./MCP_GUIDE.md)
 - **Cambios:** [CHANGELOG.md](./CHANGELOG.md)
@@ -37,6 +38,7 @@ necesarias a ese destino.
 - [Instalación desde una release](#instalación-desde-una-release)
 - [Compilar e instalar desde el código fuente](./DEVELOPMENT.md)
 - [Extensión MCP para VS Code en Marketplace](https://marketplace.visualstudio.com/items?itemName=JosCruzChvez.gdw-vault-mcp)
+- [Plugin para Claude Code](#claude-code)
 - [Guía práctica MCP: instalación, configuración y ejemplos](./MCP_GUIDE.md)
 - [Uso](#uso)
 - [Integración MCP](#integración-mcp)
@@ -248,6 +250,36 @@ gdw-vault exec "Nombre" -- <comando>  # ejecutar con el secreto inyectado
 Consulta la [guía práctica de MCP](./MCP_GUIDE.md) para ver los pasos de
 instalación y configuración, y ejemplos de SSH, MySQL, Magento, WordPress y
 Joomla.
+
+### Claude Code
+
+Instala GDW Vault mediante el `.pkg` o Homebrew para configurar la app, el
+servicio local y el comando `gdw-vault` que utiliza el plugin. Después, en una
+terminal, agrega el marketplace de este repositorio e instala el plugin:
+
+```bash
+claude plugin marketplace add josecruzchavez/gdw-vault
+claude plugin install gdw-vault@gdw-vault
+```
+
+Inicia una sesión nueva de Claude Code. Para comprobar la instalación, ejecuta
+`claude mcp list` y confirma que aparece `gdw-vault`. El plugin requiere macOS y
+una instalación activa de GDW Vault; la bóveda y sus credenciales permanecen
+en esta Mac. Si instalaste la app desde `.dmg` o `.zip`, sigue primero los pasos
+de [configuración del CLI](#configurar-el-cli-después-de-instalar-el-dmg-o-zip).
+
+Para actualizar el plugin cuando se publique una nueva versión:
+
+```bash
+claude plugin marketplace update gdw-vault
+claude plugin update gdw-vault@gdw-vault
+```
+
+Para quitarlo:
+
+```bash
+claude plugin uninstall gdw-vault@gdw-vault
+```
 
 ### Configurar VS Code / Copilot
 

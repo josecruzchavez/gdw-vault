@@ -112,10 +112,18 @@ claude plugin install gdw-vault@gdw-vault
 ```
 
 Inicia una sesión nueva de Claude Code para que se conecte al servidor MCP
-local. El plugin requiere macOS y una instalación configurada de GDW Vault; no
-sube la bóveda ni guarda credenciales en su configuración. Si instalaste desde
-`.dmg` o `.zip`, configura primero el CLI como se describe arriba.
+local. Comprueba la instalación con `claude mcp list`. El plugin requiere macOS
+y una instalación configurada de GDW Vault; no sube la bóveda ni guarda
+credenciales en su configuración. Si instalaste desde `.dmg` o `.zip`,
+configura primero el CLI como se describe arriba.
 
+Para actualizar o desinstalar el plugin:
+
+```bash
+claude plugin marketplace update gdw-vault
+claude plugin update gdw-vault@gdw-vault
+claude plugin uninstall gdw-vault@gdw-vault
+```
 
 ## 5. Ejemplos de uso
 
