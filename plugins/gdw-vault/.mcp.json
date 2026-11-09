@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "gdw-vault": {
+      "command": "/usr/local/bin/gdw-vault",
+      "args": ["--mcp"]
+    }
+  }
+}

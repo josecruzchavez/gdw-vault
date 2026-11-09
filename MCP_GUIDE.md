@@ -100,8 +100,24 @@ independiente. Las consultas y cambios de la bóveda se envían por XPC al
 servicio local de la app; no configures el cliente para abrir directamente el
 archivo SQLite.
 
+## 4. Usar GDW Vault desde Claude Code
 
-## 4. Ejemplos de uso
+Instala GDW Vault con el instalador `.pkg` o Homebrew; ambos configuran el
+comando `gdw-vault` que el plugin utiliza. En una terminal, agrega el
+marketplace e instala el plugin:
+
+```bash
+claude plugin marketplace add josecruzchavez/gdw-vault
+claude plugin install gdw-vault@gdw-vault
+```
+
+Inicia una sesión nueva de Claude Code para que se conecte al servidor MCP
+local. El plugin requiere macOS y una instalación configurada de GDW Vault; no
+sube la bóveda ni guarda credenciales en su configuración. Si instalaste desde
+`.dmg` o `.zip`, configura primero el CLI como se describe arriba.
+
+
+## 5. Ejemplos de uso
 
 Los siguientes bloques muestran los argumentos que el cliente envía a la
 herramienta MCP. Puedes pedir la misma operación en lenguaje natural; por

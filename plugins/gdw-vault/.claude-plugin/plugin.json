@@ -1,0 +1,10 @@
+{
+  "name": "gdw-vault",
+  "version": "1.0.0",
+  "description": "Conecta Claude Code con la bóveda local de conexiones GDW Vault en macOS.",
+  "author": {
+    "name": "GDW Vault"
+  },
+  "repository": "https://github.com/josecruzchavez/gdw-vault",
+  "license": "Apache-2.0"
+}
